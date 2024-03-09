@@ -2,7 +2,6 @@ from PyQt5.QtWidgets import QMainWindow, QVBoxLayout, QSplitter, QWidget, QTabWi
 from PyQt5.QtCore import Qt
 import pyqtgraph as pg
 
-from widgets.DisplayWidget import DisplayWidget
 from widgets.MPLWidget import MPLWidget
 
 from scipy.ndimage import gaussian_filter1d, gaussian_filter
