@@ -14,13 +14,14 @@ class ReadfileData:
                           'y': {'range': [0,2,11,0.1], 'title': 'random_y', 'data': np.zeros((11,6))},
                           'out': {'titles': ['out1', 'out2'], 'data': [np.random.rand(11,6), np.random.rand(11,6)]},
                           'alternate': True,
+                          'beforewait': True,
                           'sweep_dim': 2,
                           #'hl_logs': {'dev1': 0.1, 'dev2': 0.2},
                           #'ph_logs': ['#dev1', '#dev2']
                           'config': [],
                           'comments': []
                           }
-        
+
 
     def _build1DDataDict(self):
         # in one dimension, we use the x and out keys
@@ -31,9 +32,11 @@ class ReadfileData:
 
         self.data_dict['out']['titles'] = []
         self.data_dict['out']['data'] = []
+        rev_data = True if self.data_dict['x']['range'][3] < 0 else False
         for i, title in enumerate(self.titles):
             self.data_dict['out']['titles'].append(title)
-            self.data_dict['out']['data'].append(self.data[i])
+            data = self.data[i][::-1] if rev_data else self.data[i]
+            self.data_dict['out']['data'].append(data)
 
     def _build2dDataDict(self):
         data_x, data_y = self.data[0], self.data[1]
@@ -49,9 +52,15 @@ class ReadfileData:
 
         self.data_dict['out']['titles'] = []
         self.data_dict['out']['data'] = []
+        rev_x = True if self.data_dict['x']['range'][3] < 0 else False
+        rev_y = True if self.data_dict['y']['range'][3] < 0 else False
         for i, title in enumerate(self.titles[2:]):
             self.data_dict['out']['titles'].append(title)
-            self.data_dict['out']['data'].append(self.data[i+2])
+            data = self.data[i+2]
+            data = data[::-1] if rev_x else data
+            data = data[:,::-1] if rev_y else data
+            print(rev_x, rev_y)
+            self.data_dict['out']['data'].append(data)
             
     def _findSweepRange1D(self, array):
         # try to find the ranges the sweep array
@@ -118,6 +127,20 @@ class ReadfileData:
                 config.append(line)
         return config, comments
 
+    def _findBeforeWait(self, headers):
+        sweep_multi_option = headers[-3]
+        # "#sweep_multi_options:= {..., 'beforewait': [0.02, 0.02], ... };\n"
+        # or "#sweep_multi_options:= {..., 'beforewait': [0.02], ... };\n"
+        beforewait = []
+        try:
+            beforewait = sweep_multi_option.split('beforewait\': [')[1].split(']')[0]
+            beforewait = beforewait.split(',')
+            for i, bw in enumerate(beforewait):
+                beforewait[i] = float(bw)
+        except:
+            beforewait = np.nan
+        return beforewait
+
 
 
 
@@ -138,6 +161,7 @@ class ReadfileData:
             self.data_dict['sweep_dim'] = 2
             self._build2dDataDict()
 
+        self.data_dict['beforewait'] = self._findBeforeWait(self.headers)
         config, comment = self._findConfigAndComments(self.headers)
         self.data_dict['config'] = config
         self.data_dict['comments'] = comment

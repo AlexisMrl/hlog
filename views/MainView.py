@@ -27,23 +27,23 @@ class MainView(QMainWindow):
         self._makeSettingsTreeWidget()
         self.graphic = MPLWidget(self)
 
-        self.left_widget = QWidget()
-        self.left_layout = QVBoxLayout()
-        self.left_layout.addWidget(tree_view)
-        self.left_layout.addWidget(self.param_tree)
-        self.left_widget.setLayout(self.left_layout)
-        
+        # Left splitter with (tree_view, param_tree)
+        self.h_splitter_left = QSplitter(2)
+        self.h_splitter_left.addWidget(tree_view)
+        self.h_splitter_left.addWidget(self.param_tree)
+
+        # Right splitter with (graphic, tabs)
         self.tabs = QTabWidget()
         self.tabs.addTab(self.filter_tree, 'Analysis')
         self.tabs.addTab(self.mplkw_tree, 'Graph settings')
+        self.h_splitter_right = QSplitter(2)
+        self.h_splitter_right.addWidget(self.graphic)
+        self.h_splitter_right.addWidget(self.tabs)
 
-        self.h_splitter = QSplitter(2)
-        self.h_splitter.addWidget(self.graphic)
-        self.h_splitter.addWidget(self.tabs)
-
+        # Main splitter with (left, right)
         self.v_splitter = QSplitter()
-        self.v_splitter.addWidget(self.left_widget)
-        self.v_splitter.addWidget(self.h_splitter)
+        self.v_splitter.addWidget(self.h_splitter_left)
+        self.v_splitter.addWidget(self.h_splitter_right)
         self.setCentralWidget(self.v_splitter)
         self.v_splitter.setSizes([300, 500])
     
@@ -53,6 +53,8 @@ class MainView(QMainWindow):
             {'name': 'Sweep', 'type': 'group', 'children': [
                 {'name': 'dev1', 'type': 'group', 'children': []},
                 {'name': 'dev2', 'type': 'group', 'children': []},
+                {'name': 'alternate', 'type': 'str', 'value': str(False), 'readonly': True},
+                {'name': 'wait_before (s)', 'type': 'str', 'value': '[0.02, 0.02]', 'readonly': True},
                 ]},
             {'name': 'Out', 'type': 'group', 'children': [
                 {'name': 'x', 'type': 'list', 'values': []},
@@ -61,8 +63,8 @@ class MainView(QMainWindow):
             ]},
             {'name': 'Header', 'type': 'group', 'children': [
                 {'name': 'config', 'type': 'text', 'value': '', 'readonly': True},
-                {'name': 'comments', 'type': 'text', 'value': '', 'readonly': True, 'expanded': False},
-                ]},
+                {'name': 'comments', 'type': 'text', 'value': '', 'readonly': True},
+                ], 'expanded': False},
         ]
         self.params = pg.parametertree.Parameter.create(name='params', type='group', children=children)
         self.param_tree = pg.parametertree.ParameterTree(showHeader=True)
@@ -175,9 +177,10 @@ class MainView(QMainWindow):
             img = rfdata.getData(out_title)
             img = self.filter_fn(filter_title)(img, sigma, order)
             
-            x_range = rfdata.data_dict['x']['range']
-            y_range = rfdata.data_dict['y']['range']
-            extent = (x_range[0], x_range[1], y_range[0], y_range[1])
+            x_start, x_stop, x_nbpts, x_step = rfdata.data_dict['x']['range']
+            y_start, y_stop, y_nbpts, y_step = rfdata.data_dict['y']['range']
+            extent = (min(x_start, x_stop)-abs(x_step)/2, max(x_start, x_stop)+abs(x_step)/2,
+                      min(y_start, y_stop)-abs(y_step)/2, max(y_start, y_stop)+abs(y_step)/2)
             if any([np.isnan(e) for e in extent]):
                 extent = None
         
@@ -238,6 +241,11 @@ class MainView(QMainWindow):
         # logs
         self.params.param('Header', 'config').setValue(str(rfdata.data_dict['config']))
         self.params.param('Header', 'comments').setValue(str(rfdata.data_dict['comments']))
+        alternate = {'name': 'alternate', 'type': 'str', 'value': str(rfdata.data_dict['alternate']), 'readonly': True}
+        #wait_before = {'name': 'wait_before', 'type': 'str', 'value': str(rfdata.data_dict['beforewait']), 'readonly': True},
+        #self.params.param('Sweep').addChildren([alternate, wait_before])
+        self.params.param('Sweep').addChildren([alternate])
+
 
         self.mplkw.param('Title').setValue(rfdata.filename)
         self.mplkw.param('Title').setDefault(rfdata.filename)
