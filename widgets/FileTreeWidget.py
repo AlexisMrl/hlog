@@ -23,8 +23,7 @@ class FileTreeWidget(QWidget):
 
 
             self.view.doubleClicked.connect(self.readfile)
-            
-                
+           
         def makeMenu(self, type):
             menu = QMenu()
             menu.addAction('Go up a dir', self.goUpDir)
@@ -47,7 +46,6 @@ class FileTreeWidget(QWidget):
             
             menu.exec_(self.view.mapToGlobal(pos))
             
-
         # ACTIONS
 
         def readfile(self, index=None):

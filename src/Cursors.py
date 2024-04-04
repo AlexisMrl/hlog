@@ -161,10 +161,12 @@ class VerticalCursor(AxesWidget):
         self.setLabel()
         
 class ResizableLine(AxesWidget):
-    def __init__(self, ax, x1, y1, x2, y2, color='black'):
+    def __init__(self, ax, x1, y1, x2, y2, color='black', name='line'):
         AxesWidget.__init__(self, ax)
         
         self.line = lines.Line2D([x1,x2],[y1,y2], visible=False, lw=1, ls='--', color=color)
+        self.color = color
+        self.name = name
         self.ax.add_artist(self.line)
         
         self.dx = abs(x1-x2)/70
@@ -209,7 +211,9 @@ class ResizableLine(AxesWidget):
     def update(self, event):
         if event.inaxes is not self.ax: return
         if not self.dragEnd_1 and not self.dragEnd_2:
-            return
+            if self.onEnd_1(event) or self.onEnd_2(event):
+                self.line.set_color('red')
+            else: self.line.set_color('black')
 
         if self.dragEnd_1: 
             self.line.set_data([event.xdata, self.line.get_xdata()[1]], [event.ydata, self.line.get_ydata()[1]])
@@ -217,14 +221,15 @@ class ResizableLine(AxesWidget):
             self.line.set_data([self.line.get_xdata()[0], event.xdata], [self.line.get_ydata()[0], event.ydata])
         self.ax.figure.canvas.draw()
         self.pente = (self.line.get_ydata()[1]-self.line.get_ydata()[0])/(self.line.get_xdata()[1]-self.line.get_xdata()[0])
+        self.distance = np.sqrt((self.line.get_ydata()[1]-self.line.get_ydata()[0])**2 + (self.line.get_xdata()[1]-self.line.get_xdata()[0])**2)
         self.setLabel()
     
     def setLabel(self):
         if self.visible:
-            s = '{p:.3e}'.format(p=self.pente)
-            self.label.setText('Slope line: ' + s)
+            s = 'pente:{p:.3e}\nnorme:{d:.3e}'.format(p=self.pente, d=self.distance)
+            self.label.setText(self.name+'\n'+s)
         else:
-            self.label.setText('Slope line')
+            self.label.setText(self.name)
         
     def setVisible(self, boo):
         self.line.set_visible(boo)
@@ -235,10 +240,10 @@ class ResizableLine(AxesWidget):
         self.setVisible(not self.visible)
         self.ax.figure.canvas.draw()
     
-    def setData(self, xdata, ydata):
+    def setData(self, xdata, ydata, xstep, ystep):
         self.line.set_data(xdata, ydata)
-        self.dx = abs(xdata[0]-xdata[1])/80
-        self.dy = abs(ydata[0]-ydata[1])/80
+        self.dx = abs(xdata[0]-xdata[1])/40
+        self.dy = abs(ydata[0]-ydata[1])/40
 
 
 class Crosshair(AxesWidget):

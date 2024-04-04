@@ -97,6 +97,7 @@ class MainView(QMainWindow):
             {'name': 'Colorbar', 'type': 'group', 'children': [
                 {'name': 'min', 'type': 'slider', 'value': 0, 'limits':(0, 1), 'step': 0.001, 'default': 0},
                 {'name': 'max', 'type': 'slider', 'value': 1, 'limits':(0, 1), 'step': 0.001, 'default': 1},
+                {'name': 'log', 'type': 'bool', 'value': False}
             ]}
         ]
         self.filters = pg.parametertree.Parameter.create(name='filters', type='group', children=children)
@@ -104,7 +105,7 @@ class MainView(QMainWindow):
         self.filter_tree.setParameters(self.filters, showTop=False)
         
         def onFilterChange(param, changes):
-            self.updatePlot()
+            self.updatePlot(keep_position=True)
             #print('filter change:', param, changes)
         self.filters.sigTreeStateChanged.connect(onFilterChange)
 
@@ -150,7 +151,7 @@ class MainView(QMainWindow):
         self.mplkw_tree.setColumnWidth(0, 130)
 
     
-    def updatePlot(self):
+    def updatePlot(self, keep_position=False):
         if self.block_update: return
         rfdata = self.controller.current_data
         if rfdata is None: return
@@ -176,6 +177,10 @@ class MainView(QMainWindow):
             out_title = self.params.param('Out', 'z').value()
             img = rfdata.getData(out_title)
             img = self.filter_fn(filter_title)(img, sigma, order)
+            if self.filters.param('Colorbar', 'log').value():
+                img = np.abs(np.copy(img))
+                img = np.where(img == 0, np.nan, img)
+                img = np.log10(img)
             
             x_start, x_stop, x_nbpts, x_step = rfdata.data_dict['x']['range']
             y_start, y_stop, y_nbpts, y_step = rfdata.data_dict['y']['range']
@@ -188,7 +193,7 @@ class MainView(QMainWindow):
             plot_kwargs['cbar_factor_min'] = self.filters.param('Colorbar', 'min').value()
             plot_kwargs['cbar_factor_max'] = self.filters.param('Colorbar', 'max').value()
 
-            self.graphic.displayImage(img, extent, plot_kwargs=plot_kwargs)
+            self.graphic.displayImage(img, extent, plot_kwargs=plot_kwargs, keep_position=keep_position)
         
         self.block_update = False
 

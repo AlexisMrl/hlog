@@ -59,7 +59,7 @@ class ReadfileData:
             data = self.data[i+2]
             data = data[::-1] if rev_x else data
             data = data[:,::-1] if rev_y else data
-            print(rev_x, rev_y)
+            #print(rev_x, rev_y)
             self.data_dict['out']['data'].append(data)
             
     def _findSweepRange1D(self, array):

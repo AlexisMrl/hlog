@@ -4,6 +4,7 @@ from PyQt5.QtWidgets import QWidget, QVBoxLayout
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
 from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT as NavigationToolbar
+from matplotlib import colors
 
 from src.Cursors import ResizableLine, Crosshair
 
@@ -28,14 +29,19 @@ class MPLWidget(QWidget):
         self.toolbar.addSeparator()
         # slope line copied from TraitementQuantique, 
         # TODO: do better, not redrawing the whole figure, if possible
-        self.draggable_line = ResizableLine(self.ax, 0, 0, 1, 1)
-        self.draggable_line.label = self.toolbar.addAction('Slope line', self.draggable_line.toggleVisible)
+        self.line1 = ResizableLine(self.ax, 0, 0, 1, 1, name='line1')
+        self.line1.label = self.toolbar.addAction('line 1', self.line1.toggleVisible)
+        self.line2 = ResizableLine(self.ax, 0, 0, 1, 1, name='line2', color='green')
+        self.line2.label = self.toolbar.addAction('line 2', self.line2.toggleVisible)
+        self.line3 = ResizableLine(self.ax, 0, 0, 1, 1, name='line3', color='purple')
+        self.line3.label = self.toolbar.addAction('line 3', self.line3.toggleVisible)
         
         # crosshair
         self.crosshair = Crosshair(self.ax)
         self.action_crosshair = self.toolbar.addAction('Crosshair', self.crosshair.toggleVisible)
 
 
+        self.im = None # image
         self.bar = None # colorbar
         
     # DROPPING THINGS:
@@ -71,19 +77,33 @@ class MPLWidget(QWidget):
     def afterDisplay(self):
         xlim, dx = self.ax.get_xlim(), 0.1*(self.ax.get_xlim()[1]-self.ax.get_xlim()[0])
         ylim, dy = self.ax.get_ylim(), 0.1*(self.ax.get_ylim()[1]-self.ax.get_ylim()[0])
-        self.draggable_line.line.set_data([xlim[0]+dx, xlim[1]-dx], [ylim[0]+dy, ylim[1]-dy])
-        self.ax.add_artist(self.draggable_line.line)
+        self.line1.line.set_data([xlim[0]+dx, xlim[1]-dx], [ylim[0]+dy, ylim[1]-dy])
+        self.ax.add_artist(self.line1.line)
+        self.line2.line.set_data([xlim[0]+dx, xlim[1]-dx], [np.mean(ylim), np.mean(ylim)])
+        self.ax.add_artist(self.line2.line)
+        self.line3.line.set_data([xlim[0]+dx, xlim[1]-dx], [ylim[1]-dy, ylim[0]+dy])
+        self.ax.add_artist(self.line3.line)
         self.ax.add_artist(self.crosshair.vline)
         self.ax.add_artist(self.crosshair.hline)
         self.canvas.draw()
 
-    def displayImage(self, image_data, extent, plot_kwargs={}):
-        self.beforeDisplay(plot_kwargs)
-
-
+    def displayImage(self, image_data, extent, plot_kwargs={}, keep_position=False):
         # popping
         zlabel = plot_kwargs.pop('zlabel', '')
         cbar_min, cbar_max = plot_kwargs.pop('cbar_factor_min', 0), plot_kwargs.pop('cbar_factor_max', 1)
+        
+        def _calcColorbarLimit():
+            data_min, data_max = np.nanmin(image_data), np.nanmax(image_data)
+            return data_min+(data_max-data_min)*cbar_min, data_min+(data_max-data_min)*cbar_max
+
+        if keep_position:
+            self.im.set_data(image_data)
+            self.im.set_extent(extent)
+            self.im.set_clim(*_calcColorbarLimit())
+            self.canvas.draw()
+            return
+
+        self.beforeDisplay(plot_kwargs)
 
         # plotting
         self.im = self.ax.imshow(image_data, origin='lower', aspect='auto', interpolation='nearest',
@@ -91,9 +111,7 @@ class MPLWidget(QWidget):
         self.bar = self.figure.colorbar(self.im, ax=self.ax, label=zlabel)
 
         # colorbar limits
-        data_min, data_max = np.nanmin(image_data), np.nanmax(image_data)
-        cb_mn = data_min+(data_max-data_min)*cbar_min
-        cb_mx = data_min+(data_max-data_min)*cbar_max
+        cb_mn, cb_mx = _calcColorbarLimit()
         self.im.set_clim(cb_mn, cb_mx)
         
         self.afterDisplay()
