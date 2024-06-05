@@ -26,13 +26,16 @@ class FileTreeWidget(QWidget):
            
         def makeMenu(self, type):
             menu = QMenu()
-            menu.addAction('Go up a dir', self.goUpDir)
-            menu.addSeparator()
             menu.addAction('Copy path', self.copyPath)
             #menu.addAction('Open in file explorer', self.openInFE)
             file_action = [('Open in notepad', self.openInTE), ('Read file', self.readfile)]
             dir_action = [('Open', self.openDir)]
             for action in file_action if type=='file' else dir_action:
+                menu.addAction(action[0], action[1])
+            menu.addSeparator()
+            menu.addAction('Go up a dir', self.goUpDir)
+            expand_all_action = [('Expand all', self.view.expandAll), ('Collapse all', self.view.collapseAll)]
+            for action in expand_all_action:
                 menu.addAction(action[0], action[1])
             return menu
 

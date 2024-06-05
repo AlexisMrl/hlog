@@ -11,24 +11,12 @@ from src.ReadfileData import ReadfileData
 from src.QuickThread import QuickThread
 from src.Popup import Popup
 
-## V1: initialisation
-# backend matplotlib
-#x view 1d sweep
-#x view 2d sweep map
-#x some plot customisation: title, labels, colormap
-#x open file in notepad
-## V2: traitement update
-#x filter data
-#x draggable line with slope
-# fix bug for reversed sweep
+# tasks:
 # v and h markers
-# better draggable line
-# export plotting code
+# draggable lines
+# checkbox: alternate
 # checkbox: ignore nan. for incomplete map
-# log scale
-# error messaeg on file open
-## V3: random update:
-# read csv files ?
+# log scale on images
 
 
 

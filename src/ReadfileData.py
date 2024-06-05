@@ -13,7 +13,8 @@ class ReadfileData:
         self.data_dict = {'x': {'range': [-1,1,6,0.2], 'title': 'random_x', 'data': np.zeros((11,6))},
                           'y': {'range': [0,2,11,0.1], 'title': 'random_y', 'data': np.zeros((11,6))},
                           'out': {'titles': ['out1', 'out2'], 'data': [np.random.rand(11,6), np.random.rand(11,6)]},
-                          'alternate': True,
+                          'computed_out': {'titles': [], 'data': []}, # for computed data (r, deg, x, y)
+                          'alternate': False,
                           'beforewait': True,
                           'sweep_dim': 2,
                           #'hl_logs': {'dev1': 0.1, 'dev2': 0.2},
@@ -21,6 +22,7 @@ class ReadfileData:
                           'config': [],
                           'comments': []
                           }
+        self.x_index, self.y_index = 0, 1 # default values for swept columns in a 2d sweep
 
 
     def _build1DDataDict(self):
@@ -38,15 +40,24 @@ class ReadfileData:
             data = self.data[i][::-1] if rev_data else self.data[i]
             self.data_dict['out']['data'].append(data)
 
+    def _detectXYIndex(self):
+        # manually detect if the first two columns are actually the same value:
+        # ex: field_scale, field_raw 
+        if self.titles[0].endswith('scale') and self.titles[1].endswith('raw'):
+            return 0, 2
+        return 0, 1
+
     def _build2dDataDict(self):
-        data_x, data_y = self.data[0], self.data[1]
+        self.x_index, self.y_index = self._detectXYIndex()
+        x, y = self.x_index, self.y_index
+        data_x, data_y = self.data[x], self.data[y]
         self.data_dict['x']['data'] = data_x
         self.data_dict['y']['data'] = data_y
         # check if titles are the same:
-        if self.titles[0] == self.titles[1]:
-            self.titles[1] = self.titles[1] + '_'
-        self.data_dict['x']['title'] = self.titles[0]
-        self.data_dict['y']['title'] = self.titles[1]
+        if self.titles[x] == self.titles[y]:
+            self.titles[x] = self.titles[y] + '_'
+        self.data_dict['x']['title'] = self.titles[x]
+        self.data_dict['y']['title'] = self.titles[y]
         self._findSweepRange2D(self.headers)
         self.data_dict['alternate'] = False if np.array_equal(data_y[0], data_y[1]) else True
 
@@ -54,7 +65,7 @@ class ReadfileData:
         self.data_dict['out']['data'] = []
         rev_x = True if self.data_dict['x']['range'][3] < 0 else False
         rev_y = True if self.data_dict['y']['range'][3] < 0 else False
-        for i, title in enumerate(self.titles[2:]):
+        for i, title in enumerate(self.titles[y+1:]):
             self.data_dict['out']['titles'].append(title)
             data = self.data[i+2]
             data = data[::-1] if rev_x else data
@@ -167,17 +178,58 @@ class ReadfileData:
         self.data_dict['comments'] = comment
 
             
-    def getPlot(self, out_title):
-        i = self.data_dict['out']['titles'].index(out_title)
-        data = self.data_dict['out']['data'][i]
-        return data
-    
-    def getData(self, title):
-        i = self.data_dict['out']['titles'].index(title)
-        data_cp = self.data_dict['out']['data'][i].copy()
-        if self.data_dict['sweep_dim'] == 2 and self.data_dict['alternate']:
-            # flip odd rows
-            data_cp[1::2] = data_cp[1::2, ::-1]
-
+    def getData(self, title, alternate=False):
+        # get the data array corresponding to the title
+        # search in the out titles and data
+        if title in self.data_dict['out']['titles']:
+            i = self.data_dict['out']['titles'].index(title)
+            data_cp = self.data_dict['out']['data'][i].copy()
+        # search in the computed_out titles and data
+        elif title in self.data_dict['computed_out']['titles']:
+            i = self.data_dict['computed_out']['titles'].index(title)
+            data_cp = self.data_dict['computed_out']['data'][i].copy()
+        # alternate data if needed
+        if self.data_dict['sweep_dim'] == 2:
+            if alternate:
+                print('flipping')
+                # flip odd rows
+                data_cp[1::2] = data_cp[1::2, ::-1]
         # transpose by default
         return data_cp.T
+
+
+
+    # -- POLAR/CARTESIAN CONVERSION --
+
+    def clearComputedData(self):
+        self.data_dict['computed_out']['titles'] = []
+        self.data_dict['computed_out']['data'] = []
+    
+    def genXYData(self, r_title, deg_title):
+        # from the r aneg titles, gen new out titles and data arrays for x and y
+        r_data = self.getData(r_title)
+        deg_data = self.getData(deg_title)
+        x_data = r_data * np.cos(np.radians(deg_data))
+        y_data = r_data * np.sin(np.radians(deg_data))
+
+        self.clearComputedData()
+        self.data_dict['computed_out']['titles'].append(r_title + '_X')
+        self.data_dict['computed_out']['titles'].append(deg_title + '_Y')
+        self.data_dict['computed_out']['data'].append(x_data)
+        self.data_dict['computed_out']['data'].append(y_data)
+
+    def genPolarData(self, x_title, y_title):
+        # from the x and y titles, gen new out titles and data arrays for r and deg
+        x_data = self.getData(x_title)
+        y_data = self.getData(y_title)
+        r_data = np.sqrt(x_data**2 + y_data**2)
+        deg_data = np.arctan2(y_data, x_data)
+        deg_data = np.degrees(deg_data)
+        
+        self.clearComputedData()
+        self.data_dict['computed_out']['titles'].append(x_title + '_R')
+        self.data_dict['computed_out']['titles'].append(y_title + '_DEG')
+        self.data_dict['computed_out']['data'].append(r_data)
+        self.data_dict['computed_out']['data'].append(deg_data)
+
+            

@@ -31,6 +31,7 @@ class MainView(QMainWindow):
         self.h_splitter_left = QSplitter(2)
         self.h_splitter_left.addWidget(tree_view)
         self.h_splitter_left.addWidget(self.param_tree)
+        self.h_splitter_left.setSizes([300, 50])
 
         # Right splitter with (graphic, tabs)
         self.tabs = QTabWidget()
@@ -53,7 +54,7 @@ class MainView(QMainWindow):
             {'name': 'Sweep', 'type': 'group', 'children': [
                 {'name': 'dev1', 'type': 'group', 'children': []},
                 {'name': 'dev2', 'type': 'group', 'children': []},
-                {'name': 'alternate', 'type': 'str', 'value': str(False), 'readonly': True},
+                {'name': 'alternate', 'type': 'bool', 'value': False},
                 {'name': 'wait_before (s)', 'type': 'str', 'value': '[0.02, 0.02]', 'readonly': True},
                 ]},
             {'name': 'Out', 'type': 'group', 'children': [
@@ -65,19 +66,12 @@ class MainView(QMainWindow):
                 {'name': 'config', 'type': 'text', 'value': '', 'readonly': True},
                 {'name': 'comments', 'type': 'text', 'value': '', 'readonly': True},
                 ], 'expanded': False},
-        ]
+        ] # these are just placeholders, they are filled/rewritten in onFileOpened
         self.params = pg.parametertree.Parameter.create(name='params', type='group', children=children)
         self.param_tree = pg.parametertree.ParameterTree(showHeader=True)
         self.param_tree.setParameters(self.params, showTop=False)
 
         def onParamChange(param, changes):
-            #print('param change:', param, changes)
-            name = changes[0][0].name()
-            value = changes[0][2]
-            if name in ['x', 'y', 'z']:
-                kw_name = {'x': 'XLabel', 'y': 'YLabel', 'z': 'ZLabel'}[name]
-                self.mplkw.param(kw_name).setValue(value)
-                self.mplkw.param(kw_name).setDefault(value)
             self.updatePlot()
         self.params.sigTreeStateChanged.connect(onParamChange)
         
@@ -86,8 +80,8 @@ class MainView(QMainWindow):
     
     def _makeFilterTreeWidget(self):
     
-        self.d1_filters = ['No filter', 'dy/dx']  # 1d_filters
-        self.d2_filters = ['No filter', 'dy/dx', 'dx/dy', 'Gaussian filter'] # 2d_filters
+        self.d1_filters = ['No filter', 'dy/dx']  # filters possible for 1d data
+        self.d2_filters = ['No filter', 'dy/dx', 'dx/dy', 'Gaussian filter'] # filters possible for 2d data
         children = [
             {'name': 'Filter', 'type': 'group', 'children': [
                 {'name': 'Type', 'type': 'list', 'values': self.d2_filters, 'default': 'No filter'},
@@ -95,17 +89,20 @@ class MainView(QMainWindow):
                 {'name': 'Order', 'type': 'int', 'value': 1, 'limits': (0, None)},
             ]},
             {'name': 'Colorbar', 'type': 'group', 'children': [
-                {'name': 'min', 'type': 'slider', 'value': 0, 'limits':(0, 1), 'step': 0.001, 'default': 0},
-                {'name': 'max', 'type': 'slider', 'value': 1, 'limits':(0, 1), 'step': 0.001, 'default': 1},
                 {'name': 'log', 'type': 'bool', 'value': False}
+            ]},
+            {'name': 'Polar/Cartesian', 'type': 'group', 'children': [
+                {'name': 'type', 'type': 'list', 'value': ['No conversion', 'Polar to Cart', 'Cart to Polar']},
+                {'name': 'r', 'type': 'list', 'value': []},
+                {'name': 'theta', 'type': 'list', 'value': []}
             ]}
         ]
         self.filters = pg.parametertree.Parameter.create(name='filters', type='group', children=children)
         self.filter_tree = pg.parametertree.ParameterTree(showHeader=False)
         self.filter_tree.setParameters(self.filters, showTop=False)
         
-        def onFilterChange(param, changes):
-            self.updatePlot(keep_position=True)
+        def onFilterChange(param, changes): # called when something changes in the filter tree
+            self.updatePlot()
             #print('filter change:', param, changes)
         self.filters.sigTreeStateChanged.connect(onFilterChange)
 
@@ -133,11 +130,13 @@ class MainView(QMainWindow):
         self.mplkw_tree = pg.parametertree.ParameterTree(showHeader=False)
         self.mplkw_tree.setParameters(self.mplkw, showTop=False)
         
-        def onParamChange(param, changes):
+        def onParamChange(param, changes): # called when something changes in the settings tree
+            #data_changed = changes[0][0].opts.get('changes_data', True)
             self.updatePlot()
         self.mplkw.sigTreeStateChanged.connect(onParamChange)
     
         def toDict(dim=2):
+            # return a dictionary with all the settings to be passed to the plot function
             dic = {}
             for child in self.mplkw.children():
                 if 'dim' in child.opts and child.opts['dim'] != dim:
@@ -151,16 +150,37 @@ class MainView(QMainWindow):
         self.mplkw_tree.setColumnWidth(0, 130)
 
     
-    def updatePlot(self, keep_position=False):
+    def updatePlot(self, data_changed=True):
+        # called on file open or when a parameter is changed
         if self.block_update: return
+
         rfdata = self.controller.current_data
         if rfdata is None: return
 
         self.block_update = True
-
+        
+        # Polar/Cartesian conversion
+        conversion_type = self.filters.param('Polar/Cartesian', 'type').value()
+        if conversion_type != 'No conversion':
+            param_1, param_2 = self.filters.param('Polar/Cartesian').children()[1:]
+            if conversion_type == 'Polar to Cart':
+                param_1.setName('r')
+                param_2.setName('theta')
+                rfdata.genXYData(param_1.value(), param_2.value())
+            elif conversion_type == 'Cart to Polar':
+                param_1.setName('x')
+                param_2.setName('y')
+                rfdata.genPolarData(param_1.value(), param_2.value())
+        else:
+            rfdata.clearComputedData()
+        self._updateOutTitles()
 
         x_title = self.params.param('Out', 'x').value()
         y_title = self.params.param('Out', 'y').value()
+        self.mplkw.param('XLabel').setValue(x_title)
+        self.mplkw.param('YLabel').setValue(y_title)
+        self.mplkw.param('XLabel').setDefault(x_title)
+        self.mplkw.param('YLabel').setDefault(y_title)
         
         filter_title = self.filters.param('Filter', 'Type').value()
         sigma = self.filters.param('Filter', 'Sigma').value()
@@ -171,16 +191,22 @@ class MainView(QMainWindow):
             y_data = rfdata.getData(y_title)
             y_data = self.filter_fn(filter_title)(y_data, sigma, order)
             plot_kwargs = self.mplkw.toDict(dim=1)
-            self.graphic.displayPlot(x_data, y_data, plot_kwargs=plot_kwargs)
+            self.graphic.displayPlot(x_data, y_data, plot_kwargs=plot_kwargs, is_new_data=data_changed)
 
         elif rfdata.data_dict['sweep_dim'] == 2:
             out_title = self.params.param('Out', 'z').value()
-            img = rfdata.getData(out_title)
+            self.mplkw.param('ZLabel').setValue(out_title)
+            self.mplkw.param('ZLabel').setDefault(out_title)
+
+            alternate = self.params.param('Sweep', 'alternate').value()
+
+            img = rfdata.getData(out_title, alternate=alternate)
             img = self.filter_fn(filter_title)(img, sigma, order)
-            if self.filters.param('Colorbar', 'log').value():
-                img = np.abs(np.copy(img))
-                img = np.where(img == 0, np.nan, img)
-                img = np.log10(img)
+            # TODO log scale
+            #if self.filters.param('Colorbar', 'log').value():
+                #copy_img = np.copy(img)
+                #copy_img[copy_img <= 0] = np.nan
+                #img = np.log10(copy_img)
             
             x_start, x_stop, x_nbpts, x_step = rfdata.data_dict['x']['range']
             y_start, y_stop, y_nbpts, y_step = rfdata.data_dict['y']['range']
@@ -190,15 +216,35 @@ class MainView(QMainWindow):
                 extent = None
         
             plot_kwargs = self.mplkw.toDict(dim=2)
-            plot_kwargs['cbar_factor_min'] = self.filters.param('Colorbar', 'min').value()
-            plot_kwargs['cbar_factor_max'] = self.filters.param('Colorbar', 'max').value()
 
-            self.graphic.displayImage(img, extent, plot_kwargs=plot_kwargs, keep_position=keep_position)
+            self.graphic.displayImage(img, extent, plot_kwargs=plot_kwargs, is_new_data=data_changed)
         
         self.block_update = False
 
+    def _updateOutTitles(self):
+        # update the out titles in the filter tree, keeping the current value selected
+        # usefull to dynamically add new out titles (polar/cartesian)
+        rfdata = self.controller.current_data
+        out_titles = rfdata.data_dict['out']['titles']
+        computed_out_titles = rfdata.data_dict['computed_out']['titles']
+        if rfdata.data_dict['sweep_dim'] == 1:
+            current_x, current_y = self.params.param('Out', 'x').value(), self.params.param('Out', 'y').value()
+            self.params.param('Out', 'x').setLimits(out_titles + computed_out_titles)
+            self.params.param('Out', 'y').setLimits(out_titles + computed_out_titles)
+            if current_x in out_titles + computed_out_titles:
+                self.params.param('Out', 'x').setValue(current_x)
+            if current_y in out_titles + computed_out_titles:
+                self.params.param('Out', 'y').setValue(current_y)
+        elif rfdata.data_dict['sweep_dim'] == 2:
+            current_z = self.params.param('Out', 'z').value()
+            self.params.param('Out', 'z').setLimits(out_titles + computed_out_titles)
+            if current_z in out_titles + computed_out_titles:
+                self.params.param('Out', 'z').setValue(current_z)
     
     def onFileOpened(self, rfdata):
+        # 1 block the update
+        # 2 clear the trees
+        # 3 fill all the param trees with the data
         self.block_update = True
 
         self.params.param('Out').clearChildren()
@@ -246,10 +292,22 @@ class MainView(QMainWindow):
         # logs
         self.params.param('Header', 'config').setValue(str(rfdata.data_dict['config']))
         self.params.param('Header', 'comments').setValue(str(rfdata.data_dict['comments']))
-        alternate = {'name': 'alternate', 'type': 'str', 'value': str(rfdata.data_dict['alternate']), 'readonly': True}
+        alternate = {'name': 'alternate', 'type': 'bool', 'value': rfdata.data_dict['alternate']}
         #wait_before = {'name': 'wait_before', 'type': 'str', 'value': str(rfdata.data_dict['beforewait']), 'readonly': True},
         #self.params.param('Sweep').addChildren([alternate, wait_before])
         self.params.param('Sweep').addChildren([alternate])
+        
+        # Polar/Cartesian
+        polar_cart = self.filters.param('Polar/Cartesian')
+        item_list = ['No conversion', 'Polar to Cart', 'Cart to Polar']
+        self.filters.param('Polar/Cartesian', 'type').setLimits(item_list) 
+        self.filters.param('Polar/Cartesian', 'type').setDefault(item_list[0])
+        polar_cart.children()[1].setLimits(out_titles)
+        polar_cart.children()[1].setValue(out_titles[0])
+        polar_cart.children()[1].setDefault(out_titles[0])
+        polar_cart.children()[2].setLimits(out_titles)
+        polar_cart.children()[2].setValue(out_titles[1])
+        polar_cart.children()[2].setDefault(out_titles[1])
 
 
         self.mplkw.param('Title').setValue(rfdata.filename)
@@ -261,7 +319,7 @@ class MainView(QMainWindow):
         
 
         self.block_update = False
-        self.updatePlot()
+        self.updatePlot(data_changed=True)
 
 
 
