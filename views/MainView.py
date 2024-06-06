@@ -3,6 +3,7 @@ from PyQt5.QtCore import Qt
 import pyqtgraph as pg
 
 from widgets.MPLWidget import MPLWidget
+from widgets.MPLTraceWidget import MPLTraceWidget
 
 from scipy.ndimage import gaussian_filter1d, gaussian_filter
 import numpy as np
@@ -20,6 +21,9 @@ class MainView(QMainWindow):
         # ICON
         icon = pg.QtGui.QIcon('./resources/icon.png')
         self.setWindowIcon(icon)
+        
+        # TRACE WINDOW
+        self.trace_window = MPLTraceWidget(self)
         
         # MAIN LAYOUT
         self._makeParamTreeWidget()
@@ -47,6 +51,20 @@ class MainView(QMainWindow):
         self.v_splitter.addWidget(self.h_splitter_right)
         self.setCentralWidget(self.v_splitter)
         self.v_splitter.setSizes([300, 500])
+        
+        # variables
+        self.displayed_data = None # store the data displayed in the plot
+        # {dim: 1, data: (x, y)} or {dim: 2, data: (img, (x_start, x_stop, y_start, y_stop))}
+        
+    def onKeyPress(self, event):
+        #print('key pressed:', event.key())
+        if event.key() == Qt.Key_T:
+            self.showTrace()
+        elif event.key() == Qt.Key_C:
+            self.graphic.toggleCursor()
+        else:
+            QMainWindow.keyPressEvent(self, event)
+
     
 
     def _makeParamTreeWidget(self):
@@ -159,6 +177,10 @@ class MainView(QMainWindow):
 
         self.block_update = True
         
+        # reset variables
+        self.displayed_data = None
+        self.traces = []
+        
         # Polar/Cartesian conversion
         conversion_type = self.filters.param('Polar/Cartesian', 'type').value()
         if conversion_type != 'No conversion':
@@ -192,6 +214,7 @@ class MainView(QMainWindow):
             y_data = self.filter_fn(filter_title)(y_data, sigma, order)
             plot_kwargs = self.mplkw.toDict(dim=1)
             self.graphic.displayPlot(x_data, y_data, plot_kwargs=plot_kwargs, is_new_data=data_changed)
+            self.displayed_data = {'dim': 1, 'data': (x_data, y_data)}
 
         elif rfdata.data_dict['sweep_dim'] == 2:
             out_title = self.params.param('Out', 'z').value()
@@ -202,22 +225,21 @@ class MainView(QMainWindow):
 
             img = rfdata.getData(out_title, alternate=alternate)
             img = self.filter_fn(filter_title)(img, sigma, order)
-            # TODO log scale
-            #if self.filters.param('Colorbar', 'log').value():
-                #copy_img = np.copy(img)
-                #copy_img[copy_img <= 0] = np.nan
-                #img = np.log10(copy_img)
+            if self.filters.param('Colorbar', 'log').value():
+                img = np.log(img, where=img>0)
             
             x_start, x_stop, x_nbpts, x_step = rfdata.data_dict['x']['range']
             y_start, y_stop, y_nbpts, y_step = rfdata.data_dict['y']['range']
             extent = (min(x_start, x_stop)-abs(x_step)/2, max(x_start, x_stop)+abs(x_step)/2,
                       min(y_start, y_stop)-abs(y_step)/2, max(y_start, y_stop)+abs(y_step)/2)
+            # extent = (x_start, x_stop, y_start, y_stop)
             if any([np.isnan(e) for e in extent]):
                 extent = None
         
             plot_kwargs = self.mplkw.toDict(dim=2)
 
             self.graphic.displayImage(img, extent, plot_kwargs=plot_kwargs, is_new_data=data_changed)
+            self.displayed_data = {'dim': 2, 'data': (img, (x_start, x_stop, y_start, y_stop))}
         
         self.block_update = False
 
@@ -321,9 +343,52 @@ class MainView(QMainWindow):
         self.block_update = False
         self.updatePlot(data_changed=True)
 
-
-
     
+    # TRACE WINDOW
+    def _findIndexOfClosestToTarget(self, target, array):
+        # find the closest point in the array to the target
+        index = np.argmin(np.abs(array - target))
+        return index
+
+    def showTrace(self, click_x=None, click_y=None):
+        # 2 in 1 function
+        # show the trace window if no arguments
+        # if click_x and click_y are not None, display the trace for the clicked position
+        self.trace_window.show()
+        if click_x is None or click_y is None:
+            self.trace_window.raise_()
+            # force the trace window to be on top
+            self.trace_window.activateWindow()
+            return
+        if self.displayed_data is None:
+            return
+        
+        color = self.trace_window.getColor()
+
+        if self.displayed_data['dim'] == 1:
+            x_ax = self.displayed_data['data'][0]
+            x_ax = x_ax[~np.isnan(x_ax)] # remove nans
+            x_index_clicked = self._findIndexOfClosestToTarget(click_x, x_ax)
+            self.trace_window.plotHorizontalTrace(*self.displayed_data['data'])
+        
+        elif self.displayed_data['dim'] == 2:
+            # gen linspace for x axis from the extent
+            x_start, x_stop, y_start, y_stop = self.displayed_data['data'][1]
+            x_ax = np.linspace(x_start, x_stop, self.displayed_data['data'][0].shape[1])
+            y_ax = np.linspace(y_start, y_stop, self.displayed_data['data'][0].shape[0])
+            x_index_clicked = self._findIndexOfClosestToTarget(click_x, x_ax)
+            y_index_clicked = self._findIndexOfClosestToTarget(click_y, y_ax)
+            self.graphic.onNewTrace(x_ax[x_index_clicked], y_ax[y_index_clicked], color=color)
+            vert_trace = self.displayed_data['data'][0][:, x_index_clicked]
+            hor_trace = self.displayed_data['data'][0][y_index_clicked]
+            self.trace_window.plotVerticalTrace(y_ax, vert_trace, color)
+            self.trace_window.plotHorizontalTrace(x_ax, hor_trace, color)
+            
+    def clearTraces(self):
+        self.trace_window.clear()
+        self.graphic.clearCrosses()
+        self.graphic.canvas.draw()
+
     ## UTILS
     def rangeToString(self, ranges):
         return '[{:.3g}, {:.3g}], npts: {}, step: {:.3g}'.format(*ranges)
@@ -337,3 +402,4 @@ class MainView(QMainWindow):
             return lambda data, sigma, order: gaussian_filter1d(data, sigma=sigma, order=order, axis=0)
         elif str_arg == 'Gaussian filter':
             return lambda data, sigma, order: gaussian_filter(data, sigma=sigma, order=order, mode='nearest')
+    

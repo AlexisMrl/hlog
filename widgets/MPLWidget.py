@@ -6,7 +6,8 @@ from matplotlib.figure import Figure
 from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT as NavigationToolbar
 from matplotlib import colors
 
-from src.Cursors import ResizableLine, Crosshair
+from matplotlib.widgets import Cursor
+from widgets.MPLElements import ResizableLine
 
 class MPLWidget(QWidget):
 
@@ -28,27 +29,39 @@ class MPLWidget(QWidget):
         self.setLayout(layout)
         
         self.toolbar.addSeparator()
+        self.trace_action = self.toolbar.addAction('Trace window', self.traceActionClicked)
+        self.trace_crosses = []
+
+
         # slope line copied from TraitementQuantique, 
         # TODO: do better, not redrawing the whole figure, if possible
-        self.line1 = ResizableLine(self.ax, 0, 0, 1, 1, name='line1')
-        self.line1.label = self.toolbar.addAction('line 1', self.line1.toggleVisible)
-        self.line2 = ResizableLine(self.ax, 0, 0, 1, 1, name='line2', color='green')
-        self.line2.label = self.toolbar.addAction('line 2', self.line2.toggleVisible)
-        self.line3 = ResizableLine(self.ax, 0, 0, 1, 1, name='line3', color='purple')
-        self.line3.label = self.toolbar.addAction('line 3', self.line3.toggleVisible)
+        #self.line1 = ResizableLine(self.ax, 0, 0, 1, 1, name='line1')
+        #self.line1.label = self.toolbar.addAction('line 1', self.line1.toggleVisible)
+        #self.line2 = ResizableLine(self.ax, 0, 0, 1, 1, name='line2', color='green')
+        #self.line2.label = self.toolbar.addAction('line 2', self.line2.toggleVisible)
+        #self.line3 = ResizableLine(self.ax, 0, 0, 1, 1, name='line3', color='purple')
+        #self.line3.label = self.toolbar.addAction('line 3', self.line3.toggleVisible)
         
         # crosshair
-        self.crosshair = Crosshair(self.ax)
-        self.action_crosshair = self.toolbar.addAction('Crosshair', self.crosshair.toggleVisible)
+        #self.crosshair = Crosshair(self.ax)
+        #self.action_crosshair = self.toolbar.addAction('Crosshair', self.crosshair.toggleVisible)
 
 
-        self.line = None # line
+        self.line = None # line plot
         self.im = None # image
         self.bar = None # colorbar
         
+        # cursor
+        self.cursor = Cursor(self.ax, useblit=True, color='black', linewidth=1)
+        def toggleCursor(boo):
+            self.cursor.visible = not self.cursor.visible
+        self.toggleCursor = toggleCursor
+        
+        # resizable line
+        self.resizable_line = ResizableLine(self)
+        
         self.home_coords = (0, 1, 0, 1)
         self.home_cbar = (0, 1)
-
         # we redefine the home button behavior
         home = self.toolbar.actions()[0]
         home.disconnect()
@@ -59,8 +72,11 @@ class MPLWidget(QWidget):
                 self.im.set_clim(*self.home_cbar)
             self.canvas.draw()
         home.triggered.connect(onHomeTrig)
+        
+        self.canvas.mpl_connect('button_press_event', self.onMouseClick)
+
     
-    # DROPPING THINGS:
+    # HANDLING EVENTS
     def dragEnterEvent(self, e):
         if e.mimeData().hasUrls(): e.accept()
         else: e.ignore()
@@ -74,8 +90,30 @@ class MPLWidget(QWidget):
             self.parent.controller.changePath(file_urls[0])
         else:
             self.parent.controller.openFile(file_urls[0])
-    # END OF DROPPING THINGS
+
+    def onMouseClick(self, event):
+        if event.inaxes != self.ax: return
+        #print('click', event.xdata, event.ydata)
+        if event.button == 1:
+            if self.ax.get_navigate_mode() == 'ZOOM':
+                return
+            if self.ax.get_navigate_mode() == 'PAN':
+                return
+            self.parent.showTrace(event.xdata, event.ydata)
     
+    def traceActionClicked(self):
+        self.parent.showTrace()
+    def onNewTrace(self, x, y, color='black'):
+        # add a cross to the graph
+        self.trace_crosses.append(self.ax.plot(x, y, 'x', color=color)[0])
+        self.canvas.draw()
+    def clearCrosses(self):
+        for cross in self.trace_crosses:
+            cross.remove()
+        self.trace_crosses = []
+    # END OF HANDLING EVENTS
+    
+
     def removeAll(self):
         if self.bar:
             self.bar.remove()
@@ -89,12 +127,16 @@ class MPLWidget(QWidget):
     
     def afterDisplay(self):
         #self.figure.tight_layout()
+        # redraw trace crosses
+        for cross in self.trace_crosses: self.ax.add_artist(cross)
+        #self.resizable_line.redraw()
         self.canvas.draw()
         print('end of afterDisplay')
 
     def displayImage(self, image_data, extent, plot_kwargs={}, is_new_data=True):
         self.removeAll()
         if is_new_data:
+            self.clearCrosses()
             self.ax.cla()
 
         # titles
@@ -121,6 +163,7 @@ class MPLWidget(QWidget):
 
     def displayPlot(self, x_data, y_data, plot_kwargs={}, is_new_data=True):
         if is_new_data:
+            self.clearCrosses()
             self.ax.cla()
 
         title = plot_kwargs.pop('title', '')

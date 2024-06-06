@@ -1,5 +1,6 @@
 from PyQt5.QtWidgets import QWidget, QFileSystemModel, QTreeView, QMenu
-from PyQt5.QtCore import Qt, QProcess
+from PyQt5.QtGui import QKeyEvent
+from PyQt5.QtCore import Qt, QProcess, QEvent
 import os
 
 class FileTreeWidget(QWidget):
@@ -19,8 +20,9 @@ class FileTreeWidget(QWidget):
             # right click menu
             self.view.setContextMenuPolicy(Qt.CustomContextMenu)
             self.view.customContextMenuRequested.connect(self.showContextMenu)    
-            
 
+            # key press
+            self.view.keyPressEvent = self.onKeyPress
 
             self.view.doubleClicked.connect(self.readfile)
            
@@ -48,6 +50,22 @@ class FileTreeWidget(QWidget):
             menu = self.makeMenu(type)
             
             menu.exec_(self.view.mapToGlobal(pos))
+        
+        def onKeyPress(self, event):
+            # if enter, open file
+            if event.key() == Qt.Key_Return or event.key() == Qt.Key_Space:
+                self.readfile()
+            # h/j/k/l navigation
+            elif event.key() == Qt.Key_H:
+                self.onKeyPress(QKeyEvent(QEvent.KeyPress, Qt.Key_Left, Qt.NoModifier))
+            elif event.key() == Qt.Key_J:
+                self.onKeyPress(QKeyEvent(QEvent.KeyPress, Qt.Key_Down, Qt.NoModifier))
+            elif event.key() == Qt.Key_K:
+                self.onKeyPress(QKeyEvent(QEvent.KeyPress, Qt.Key_Up, Qt.NoModifier))
+            elif event.key() == Qt.Key_L:
+                self.onKeyPress(QKeyEvent(QEvent.KeyPress, Qt.Key_Right, Qt.NoModifier))
+            else:
+                QTreeView.keyPressEvent(self.view, event)
             
         # ACTIONS
 

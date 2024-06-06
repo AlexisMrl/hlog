@@ -67,7 +67,7 @@ class ReadfileData:
         rev_y = True if self.data_dict['y']['range'][3] < 0 else False
         for i, title in enumerate(self.titles[y+1:]):
             self.data_dict['out']['titles'].append(title)
-            data = self.data[i+2]
+            data = self.data[i+1+y] # we start at index y+1
             data = data[::-1] if rev_x else data
             data = data[:,::-1] if rev_y else data
             #print(rev_x, rev_y)
@@ -232,4 +232,3 @@ class ReadfileData:
         self.data_dict['computed_out']['data'].append(r_data)
         self.data_dict['computed_out']['data'].append(deg_data)
 
-            
