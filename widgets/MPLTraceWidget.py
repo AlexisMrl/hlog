@@ -3,6 +3,8 @@ from PyQt5.QtWidgets import QWidget, QVBoxLayout
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT as NavigationToolbar
 from matplotlib.figure import Figure
+from matplotlib.widgets import Cursor
+from widgets.MPLElements import ResizableLine, Markers
 import pyqtgraph as pg
 
 # widget displayed when the user clicks on a point
@@ -39,6 +41,12 @@ class MPLTraceWidget(QWidget):
         self.color_index = -1
         
         self.checkboxes = []
+        
+        #self.cursorV = Cursor(self.axV, useblit=True, color='black', linewidth=1)
+        #self.cursorH = Cursor(self.axH, useblit=True, color='black', linewidth=1)
+        #self.resizable_lineV = ResizableLine(self, visible=False)
+        #self.resizable_lineH = ResizableLine(self, visible=False)
+
 
         self.clear() # init plots
         

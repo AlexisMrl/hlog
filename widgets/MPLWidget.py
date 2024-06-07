@@ -1,13 +1,14 @@
 import sys, os
 import numpy as np
 from PyQt5.QtWidgets import QWidget, QVBoxLayout
+from PyQt5.QtCore import Qt
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
 from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT as NavigationToolbar
 from matplotlib import colors
 
 from matplotlib.widgets import Cursor
-from widgets.MPLElements import ResizableLine
+from widgets.MPLElements import ResizableLine, Markers
 
 class MPLWidget(QWidget):
 
@@ -29,9 +30,8 @@ class MPLWidget(QWidget):
         self.setLayout(layout)
         
         self.toolbar.addSeparator()
-        self.trace_action = self.toolbar.addAction('Trace window', self.traceActionClicked)
+        self.trace_action = self.toolbar.addAction('Traces', self.traceActionClicked)
         self.trace_crosses = []
-
 
         # slope line copied from TraitementQuantique, 
         # TODO: do better, not redrawing the whole figure, if possible
@@ -58,7 +58,22 @@ class MPLWidget(QWidget):
         self.toggleCursor = toggleCursor
         
         # resizable line
-        self.resizable_line = ResizableLine(self)
+        self.toolbar.addSeparator()
+        self.resizable_line = ResizableLine(self, visible=False)
+        self.line1_action = self.toolbar.addAction('Line', self.resizable_line.toggleActive)
+        self.line1_action.setCheckable(True)
+        self.resizable_line.action_button = self.line1_action
+        
+        # markers
+        self.vmarkers = Markers(self, 'v', visible=False)
+        self.hmarkers = Markers(self, 'h', visible=False)
+        self.vmarkers_action = self.toolbar.addAction('VMarks', self.vmarkers.toggleActive)
+        self.hmarkers_action = self.toolbar.addAction('HMarks', self.hmarkers.toggleActive)
+        self.vmarkers_action.setCheckable(True)
+        self.hmarkers_action.setCheckable(True)
+        self.vmarkers.action_button = self.vmarkers_action
+        self.hmarkers.action_button = self.hmarkers_action
+
         
         self.home_coords = (0, 1, 0, 1)
         self.home_cbar = (0, 1)
@@ -74,6 +89,7 @@ class MPLWidget(QWidget):
         home.triggered.connect(onHomeTrig)
         
         self.canvas.mpl_connect('button_press_event', self.onMouseClick)
+        self.canvas.mpl_connect('pick_event', self.onPick)
 
     
     # HANDLING EVENTS
@@ -99,7 +115,20 @@ class MPLWidget(QWidget):
                 return
             if self.ax.get_navigate_mode() == 'PAN':
                 return
+            if self.line1_action.isChecked():
+                return
+            if self.vmarkers_action.isChecked() or self.hmarkers_action.isChecked():
+                return
             self.parent.showTrace(event.xdata, event.ydata)
+    
+    def onPick(self, event):
+        artist = event.artist
+        if artist == self.resizable_line.line and self.resizable_line.visible:
+            self.resizable_line.onPick(event)
+        if artist in self.vmarkers.lines and self.vmarkers.visible:
+            self.vmarkers.onPick(event)
+        if artist in self.hmarkers.lines and self.hmarkers.visible:
+            self.hmarkers.onPick(event)
     
     def traceActionClicked(self):
         self.parent.showTrace()
@@ -129,13 +158,15 @@ class MPLWidget(QWidget):
         #self.figure.tight_layout()
         # redraw trace crosses
         for cross in self.trace_crosses: self.ax.add_artist(cross)
-        #self.resizable_line.redraw()
+        self.ax.add_artist(self.vmarkers.line1); self.ax.add_artist(self.vmarkers.line2)
+        self.ax.add_artist(self.hmarkers.line1); self.ax.add_artist(self.hmarkers.line2)
+        self.ax.add_artist(self.resizable_line.line)
         self.canvas.draw()
         print('end of afterDisplay')
 
-    def displayImage(self, image_data, extent, plot_kwargs={}, is_new_data=True):
+    def displayImage(self, image_data, extent, plot_kwargs={}, is_new_data=False, is_new_file=False):
         self.removeAll()
-        if is_new_data:
+        if is_new_file:
             self.clearCrosses()
             self.ax.cla()
 
@@ -159,10 +190,20 @@ class MPLWidget(QWidget):
         self.home_coords = self.ax.get_xlim() + self.ax.get_ylim()
         self.home_cbar = self.im.get_clim()
         
+        if is_new_data:
+            # set the line shorter than the image extent
+            x0, x1, y0, y1 = extent
+            x_padding = 0.1*(x1-x0)
+            y_padding = 0.1*(y1-y0)
+            self.resizable_line.setPosition(x0+x_padding, y0+y_padding, x1-x_padding, y1-y_padding)
+            self.vmarkers.setPosition(x0+x_padding, x1-x_padding)
+            self.hmarkers.setPosition(y0+y_padding, y1-y_padding)
+
+        
         self.afterDisplay()
 
-    def displayPlot(self, x_data, y_data, plot_kwargs={}, is_new_data=True):
-        if is_new_data:
+    def displayPlot(self, x_data, y_data, plot_kwargs={}, is_new_data=False, is_new_file=False):
+        if is_new_file:
             self.clearCrosses()
             self.ax.cla()
 
@@ -181,6 +222,15 @@ class MPLWidget(QWidget):
         self.line = self.ax.plot(x_data, y_data, **plot_kwargs)[0]
         
         self.home_coords = self.ax.get_xlim() + self.ax.get_ylim()
+        
+        if is_new_data:
+            x0, x1 = self.ax.get_xlim()
+            y0, y1 = self.ax.get_ylim()
+            x_padding = 0.1*(x1-x0)
+            y_padding = 0.1*(y1-y0)
+            self.resizable_line.setPosition(x0+x_padding, y0+y_padding, x1-x_padding, y1-y_padding)
+            self.vmarkers.setPosition(x0+x_padding, x1-x_padding)
+            self.hmarkers.setPosition(y0+y_padding, y1-y_padding)
         
         self.afterDisplay()
     

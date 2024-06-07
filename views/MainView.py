@@ -113,7 +113,7 @@ class MainView(QMainWindow):
                 {'name': 'type', 'type': 'list', 'value': ['No conversion', 'Polar to Cart', 'Cart to Polar']},
                 {'name': 'r', 'type': 'list', 'value': []},
                 {'name': 'theta', 'type': 'list', 'value': []}
-            ]}
+            ]},
         ]
         self.filters = pg.parametertree.Parameter.create(name='filters', type='group', children=children)
         self.filter_tree = pg.parametertree.ParameterTree(showHeader=False)
@@ -168,7 +168,7 @@ class MainView(QMainWindow):
         self.mplkw_tree.setColumnWidth(0, 130)
 
     
-    def updatePlot(self, data_changed=True):
+    def updatePlot(self, data_changed=False, file_changed=False):
         # called on file open or when a parameter is changed
         if self.block_update: return
 
@@ -213,7 +213,7 @@ class MainView(QMainWindow):
             y_data = rfdata.getData(y_title)
             y_data = self.filter_fn(filter_title)(y_data, sigma, order)
             plot_kwargs = self.mplkw.toDict(dim=1)
-            self.graphic.displayPlot(x_data, y_data, plot_kwargs=plot_kwargs, is_new_data=data_changed)
+            self.graphic.displayPlot(x_data, y_data, plot_kwargs=plot_kwargs, is_new_data=data_changed, is_new_file=file_changed)
             self.displayed_data = {'dim': 1, 'data': (x_data, y_data)}
 
         elif rfdata.data_dict['sweep_dim'] == 2:
@@ -238,7 +238,7 @@ class MainView(QMainWindow):
         
             plot_kwargs = self.mplkw.toDict(dim=2)
 
-            self.graphic.displayImage(img, extent, plot_kwargs=plot_kwargs, is_new_data=data_changed)
+            self.graphic.displayImage(img, extent, plot_kwargs=plot_kwargs, is_new_data=data_changed, is_new_file=file_changed)
             self.displayed_data = {'dim': 2, 'data': (img, (x_start, x_stop, y_start, y_stop))}
         
         self.block_update = False
@@ -341,7 +341,7 @@ class MainView(QMainWindow):
         
 
         self.block_update = False
-        self.updatePlot(data_changed=True)
+        self.updatePlot(data_changed=True, file_changed=True)
 
     
     # TRACE WINDOW
