@@ -226,7 +226,7 @@ class MainView(QMainWindow):
             img = rfdata.getData(out_title, alternate=alternate)
             img = self.filter_fn(filter_title)(img, sigma, order)
             if self.filters.param('Colorbar', 'log').value():
-                img = np.log(img, where=img>0)
+                img = np.log(np.absolute(img))
             
             x_start, x_stop, x_nbpts, x_step = rfdata.data_dict['x']['range']
             y_start, y_stop, y_nbpts, y_step = rfdata.data_dict['y']['range']
