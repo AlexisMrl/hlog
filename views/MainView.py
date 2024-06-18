@@ -107,6 +107,8 @@ class MainView(QMainWindow):
                 {'name': 'Order', 'type': 'int', 'value': 1, 'limits': (0, None)},
             ]},
             {'name': 'Colorbar', 'type': 'group', 'children': [
+                {'name': 'min', 'type': 'slider', 'value': 0, 'limits':(0, 1), 'step': 0.001, 'default': 0},
+                {'name': 'max', 'type': 'slider', 'value': 1, 'limits':(0, 1), 'step': 0.001, 'default': 1},
                 {'name': 'log', 'type': 'bool', 'value': False}
             ]},
             {'name': 'Polar/Cartesian', 'type': 'group', 'children': [
@@ -227,6 +229,9 @@ class MainView(QMainWindow):
             img = self.filter_fn(filter_title)(img, sigma, order)
             if self.filters.param('Colorbar', 'log').value():
                 img = np.log(np.absolute(img))
+
+            cbar_min = self.filters.param('Colorbar', 'min').value()
+            cbar_max = self.filters.param('Colorbar', 'max').value()
             
             x_start, x_stop, x_nbpts, x_step = rfdata.data_dict['x']['range']
             y_start, y_stop, y_nbpts, y_step = rfdata.data_dict['y']['range']
@@ -238,7 +243,7 @@ class MainView(QMainWindow):
         
             plot_kwargs = self.mplkw.toDict(dim=2)
 
-            self.graphic.displayImage(img, extent, plot_kwargs=plot_kwargs, is_new_data=data_changed, is_new_file=file_changed)
+            self.graphic.displayImage(img, extent, plot_kwargs=plot_kwargs, is_new_data=data_changed, is_new_file=file_changed, cbar_min_max=(cbar_min, cbar_max))
             self.displayed_data = {'dim': 2, 'data': (img, (x_start, x_stop, y_start, y_stop))}
         
         self.block_update = False
@@ -374,6 +379,7 @@ class MainView(QMainWindow):
         elif self.displayed_data['dim'] == 2:
             # gen linspace for x axis from the extent
             x_start, x_stop, y_start, y_stop = self.displayed_data['data'][1]
+            x_start, x_stop, y_start, y_stop = min(x_start, x_stop), max(x_start, x_stop), min(y_start, y_stop), max(y_start, y_stop)
             x_ax = np.linspace(x_start, x_stop, self.displayed_data['data'][0].shape[1])
             y_ax = np.linspace(y_start, y_stop, self.displayed_data['data'][0].shape[0])
             x_index_clicked = self._findIndexOfClosestToTarget(click_x, x_ax)

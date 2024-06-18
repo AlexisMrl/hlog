@@ -104,7 +104,7 @@ class Markers():
         self.line2.set_visible(visible)
     
     def setPosition(self, coord_l1, coord_l2): # x or y depending on orientation
-        print('coord_l1:', coord_l1, 'coord_l2:', coord_l2)
+        #print('coord_l1:', coord_l1, 'coord_l2:', coord_l2)
         if self.orientation == 'v':
             self.line1.set_xdata([coord_l1, coord_l1])
             self.line2.set_xdata([coord_l2, coord_l2])
@@ -116,7 +116,7 @@ class Markers():
         self.line1.set_visible(not self.line1.get_visible())
         self.line2.set_visible(not self.line2.get_visible())
         self.visible = self.line1.get_visible()
-        print('position:', self.line1.get_xdata(), self.line1.get_ydata())
+        #print('position:', self.line1.get_xdata(), self.line1.get_ydata())
         self.parent.canvas.draw()
     
     def onPick(self, event):

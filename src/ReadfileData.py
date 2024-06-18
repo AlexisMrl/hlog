@@ -205,10 +205,10 @@ class ReadfileData:
         self.data_dict['computed_out']['titles'] = []
         self.data_dict['computed_out']['data'] = []
     
-    def genXYData(self, r_title, deg_title):
+    def genXYData(self, r_title, deg_title, alternate=False):
         # from the r aneg titles, gen new out titles and data arrays for x and y
-        r_data = self.getData(r_title)
-        deg_data = self.getData(deg_title)
+        r_data = self.getData(r_title, alternate=alternate)
+        deg_data = self.getData(deg_title, alternate=alternate)
         x_data = r_data * np.cos(np.radians(deg_data))
         y_data = r_data * np.sin(np.radians(deg_data))
 
@@ -218,10 +218,10 @@ class ReadfileData:
         self.data_dict['computed_out']['data'].append(x_data)
         self.data_dict['computed_out']['data'].append(y_data)
 
-    def genPolarData(self, x_title, y_title):
+    def genPolarData(self, x_title, y_title, alternate=False):
         # from the x and y titles, gen new out titles and data arrays for r and deg
-        x_data = self.getData(x_title)
-        y_data = self.getData(y_title)
+        x_data = self.getData(x_title, alternate=alternate)
+        y_data = self.getData(y_title, alternate=alternate)
         r_data = np.sqrt(x_data**2 + y_data**2)
         deg_data = np.arctan2(y_data, x_data)
         deg_data = np.degrees(deg_data)

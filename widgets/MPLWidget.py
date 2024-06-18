@@ -164,7 +164,7 @@ class MPLWidget(QWidget):
         self.canvas.draw()
         print('end of afterDisplay')
 
-    def displayImage(self, image_data, extent, plot_kwargs={}, is_new_data=False, is_new_file=False):
+    def displayImage(self, image_data, extent, plot_kwargs={}, is_new_data=False, is_new_file=False, cbar_min_max=(0,1)):
         self.removeAll()
         if is_new_file:
             self.clearCrosses()
@@ -185,7 +185,8 @@ class MPLWidget(QWidget):
         self.bar = self.figure.colorbar(self.im, ax=self.ax, label=zlabel)
 
         # colorbar limits
-        self.im.set_clim(np.nanmin(image_data), np.nanmax(image_data))
+        data_min, data_max = np.nanmin(image_data), np.nanmax(image_data)
+        self.im.set_clim(data_min+(data_max-data_min)*cbar_min_max[0], data_min+(data_max-data_min)*cbar_min_max[1])
         
         self.home_coords = self.ax.get_xlim() + self.ax.get_ylim()
         self.home_cbar = self.im.get_clim()
