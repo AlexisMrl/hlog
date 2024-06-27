@@ -94,16 +94,18 @@ class ReadfileData:
         array_y = self.data[1][0]
         start_y, stop_y, nbpts_y, step_y = np.nan, np.nan, len(array_y), np.nan
         line_options = headers[-3]
-        if 'sweep' not in line_options:
-            return
-        options = line_options.split(',')
-        for option in options:
-            if 'start' in option:
-                try: start_y = float(option.split(' ')[-1])
-                except: pass
-            elif 'stop' in option:
-                try: stop_y = float(option.split(' ')[-1])
-                except: pass
+        if 'sweep' in line_options:
+            options = line_options.split(',')
+            for option in options:
+                if 'start' in option:
+                    try: start_y = float(option.split(' ')[-1])
+                    except: pass
+                elif 'stop' in option:
+                    try: stop_y = float(option.split(' ')[-1])
+                    except: pass
+        else:
+            start_y = array_y[0]
+            stop_y = array_y[-1]
         if not np.isnan(start_y) or not np.isnan(stop_y):
             step_y = (stop_y - start_y) / (nbpts_y - 1)
 
