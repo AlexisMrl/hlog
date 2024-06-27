@@ -55,16 +55,6 @@ class MainView(QMainWindow):
         # variables
         self.displayed_data = None # store the data displayed in the plot
         # {dim: 1, data: (x, y)} or {dim: 2, data: (img, (x_start, x_stop, y_start, y_stop))}
-        
-    def onKeyPress(self, event):
-        #print('key pressed:', event.key())
-        if event.key() == Qt.Key_T:
-            self.showTrace()
-        elif event.key() == Qt.Key_C:
-            self.graphic.toggleCursor()
-        else:
-            QMainWindow.keyPressEvent(self, event)
-
     
 
     def _makeParamTreeWidget(self):
@@ -228,7 +218,7 @@ class MainView(QMainWindow):
             img = rfdata.getData(out_title, alternate=alternate)
             img = self.filter_fn(filter_title)(img, sigma, order)
             if self.filters.param('Colorbar', 'log').value():
-                img = np.log(np.absolute(img))
+                img = np.log10(np.absolute(img))
 
             cbar_min = self.filters.param('Colorbar', 'min').value()
             cbar_max = self.filters.param('Colorbar', 'max').value()

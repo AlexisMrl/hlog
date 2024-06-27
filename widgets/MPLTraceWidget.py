@@ -23,8 +23,8 @@ class MPLTraceWidget(QWidget):
         self.resize(800, 400)
         
         self.figure = Figure()
-        self.axV = self.figure.add_subplot(121)
-        self.axH = self.figure.add_subplot(122)
+        self.axH = self.figure.add_subplot(121)
+        self.axV = self.figure.add_subplot(122)
 
         self.canvas = FigureCanvas(self.figure)
         self.toolbar = NavigationToolbar(self.canvas, self)
@@ -55,9 +55,9 @@ class MPLTraceWidget(QWidget):
         self.axH.clear()
         self.axV.set_title('Vertical slice')
         self.axH.set_title('Horizontal slice')
-        self.axV.set_xlabel('x')
-        self.axV.set_ylabel('z')
-        self.axH.set_xlabel('y')
+        self.axV.set_xlabel('y')
+        self.axH.set_ylabel('z')
+        self.axH.set_xlabel('x')
         self.axV.grid(); self.axH.grid()
         self.color_index = -1
         self.canvas.draw()

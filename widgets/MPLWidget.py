@@ -1,6 +1,6 @@
 import sys, os
 import numpy as np
-from PyQt5.QtWidgets import QWidget, QVBoxLayout
+from PyQt5.QtWidgets import QWidget, QVBoxLayout, QAction
 from PyQt5.QtCore import Qt
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
@@ -24,13 +24,24 @@ class MPLWidget(QWidget):
         self.ax.autoscale(enable=False)
         self.canvas = FigureCanvas(self.figure)
         self.toolbar = NavigationToolbar(self.canvas, self)
+
         layout = QVBoxLayout()
         layout.addWidget(self.toolbar)
         layout.addWidget(self.canvas)
         self.setLayout(layout)
         
+        self.actionTrace = QAction('Traces', self)
+        self.actionTrace.setCheckable(True)
+        self.actionPan = self.toolbar.actions()[4]
+        self.actionZoom = self.toolbar.actions()[5]
+        self.toolbar.insertAction(self.toolbar.actions()[6], self.actionTrace)
+        self.actionZoom.toggled.connect(lambda boo: self.actionModeChanged(boo, 'ZOOM'))
+        self.actionPan.toggled.connect(lambda boo: self.actionModeChanged(boo, 'PAN'))
+        self.actionTrace.toggled.connect(lambda boo: self.actionModeChanged(boo, 'TRACE'))
+        self._changing_mode = False # use to block signal
+        
         self.toolbar.addSeparator()
-        self.trace_action = self.toolbar.addAction('Traces', self.traceActionClicked)
+        self.trace_action = self.toolbar.addAction('Trace window', self.traceActionClicked)
         self.trace_crosses = []
 
         # slope line copied from TraitementQuantique, 
@@ -106,20 +117,27 @@ class MPLWidget(QWidget):
             self.parent.controller.changePath(file_urls[0])
         else:
             self.parent.controller.openFile(file_urls[0])
+            
+    def actionModeChanged(self, boo, clicked=''):
+        if self._changing_mode: return
+        if clicked == 'ZOOM' or clicked == 'PAN':
+            self._changing_mode = True
+            self.actionTrace.setChecked(False)
+            self.toggleCursor(False)
+            self._changing_mode = False
+        elif clicked == 'TRACE':
+            self._changing_mode = True
+            if self.actionPan.isChecked(): self.toolbar.pan()
+            if self.actionZoom.isChecked(): self.toolbar.zoom()
+            self.toggleCursor(True)
+            self._changing_mode = False
 
     def onMouseClick(self, event):
         if event.inaxes != self.ax: return
         #print('click', event.xdata, event.ydata)
         if event.button == 1:
-            if self.ax.get_navigate_mode() == 'ZOOM':
-                return
-            if self.ax.get_navigate_mode() == 'PAN':
-                return
-            if self.line1_action.isChecked():
-                return
-            if self.vmarkers_action.isChecked() or self.hmarkers_action.isChecked():
-                return
-            self.parent.showTrace(event.xdata, event.ydata)
+            if self.actionTrace.isChecked():
+                self.parent.showTrace(event.xdata, event.ydata)
     
     def onPick(self, event):
         artist = event.artist
@@ -129,7 +147,7 @@ class MPLWidget(QWidget):
             self.vmarkers.onPick(event)
         if artist in self.hmarkers.lines and self.hmarkers.visible:
             self.hmarkers.onPick(event)
-    
+
     def traceActionClicked(self):
         self.parent.showTrace()
     def onNewTrace(self, x, y, color='black'):
@@ -222,7 +240,10 @@ class MPLWidget(QWidget):
         self.removeAll()
         self.line = self.ax.plot(x_data, y_data, **plot_kwargs)[0]
         
-        self.home_coords = self.ax.get_xlim() + self.ax.get_ylim()
+        # redefine home coord
+        x_padding = 0.1*(np.nanmax(x_data)-np.nanmin(x_data))
+        y_padding = 0.1*(np.nanmax(y_data)-np.nanmin(y_data))
+        self.home_coords = (np.nanmin(x_data)-x_padding, np.nanmax(x_data)+x_padding, np.nanmin(y_data)-y_padding, np.nanmax(y_data)+y_padding)
         
         if is_new_data:
             x0, x1 = self.ax.get_xlim()

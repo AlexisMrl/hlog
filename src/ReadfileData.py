@@ -191,7 +191,6 @@ class ReadfileData:
         # alternate data if needed
         if self.data_dict['sweep_dim'] == 2:
             if alternate:
-                print('flipping')
                 # flip odd rows
                 data_cp[1::2] = data_cp[1::2, ::-1]
         # transpose by default

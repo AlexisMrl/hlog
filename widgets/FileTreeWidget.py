@@ -29,16 +29,17 @@ class FileTreeWidget(QWidget):
         def makeMenu(self, type):
             menu = QMenu()
             menu.addAction('Copy path', self.copyPath)
-            #menu.addAction('Open in file explorer', self.openInFE)
             file_action = [('Open in notepad', self.openInTE), ('Read file', self.readfile)]
             dir_action = [('Open', self.openDir)]
             for action in file_action if type=='file' else dir_action:
                 menu.addAction(action[0], action[1])
             menu.addSeparator()
             menu.addAction('Go up a dir', self.goUpDir)
+            #menu.addAction('Open in file explorer', self.openInFE)
             expand_all_action = [('Expand all', self.view.expandAll), ('Collapse all', self.view.collapseAll)]
             for action in expand_all_action:
                 menu.addAction(action[0], action[1])
+            menu.addAction('Refresh', self.refresh)
             return menu
 
         def showContextMenu(self, pos):
@@ -66,7 +67,7 @@ class FileTreeWidget(QWidget):
                 self.onKeyPress(QKeyEvent(QEvent.KeyPress, Qt.Key_Right, Qt.NoModifier))
             else:
                 QTreeView.keyPressEvent(self.view, event)
-            
+        
         # ACTIONS
 
         def readfile(self, index=None):
@@ -85,7 +86,7 @@ class FileTreeWidget(QWidget):
                 process.startDetached('notepad.exe', [path])
             except:
                 self.parent.write('Could not open in text editor: '+path)
-
+        
         def goUpDir(self):
             path = self.model.filePath(self.view.rootIndex())
             path = os.path.dirname(path)
@@ -100,3 +101,8 @@ class FileTreeWidget(QWidget):
             index = self.view.currentIndex()
             path = self.model.filePath(index)
             self.parent.cb.setText(path)
+        
+        def refresh(self):
+            path = self.model.filePath(self.view.rootIndex())
+            self.model.setRootPath('')
+            self.model.setRootPath(path)
