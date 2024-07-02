@@ -180,7 +180,7 @@ class ReadfileData:
         self.data_dict['comments'] = comment
 
             
-    def getData(self, title, alternate=False):
+    def getData(self, title, alternate=False, transpose=False):
         # get the data array corresponding to the title
         # search in the out titles and data
         if title in self.data_dict['out']['titles']:
@@ -195,6 +195,8 @@ class ReadfileData:
             if alternate:
                 # flip odd rows
                 data_cp[1::2] = data_cp[1::2, ::-1]
+        if transpose:
+            data_cp = data_cp.T
         # transpose by default
         return data_cp.T
 

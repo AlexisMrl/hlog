@@ -63,6 +63,7 @@ class MainView(QMainWindow):
                 {'name': 'dev1', 'type': 'group', 'children': []},
                 {'name': 'dev2', 'type': 'group', 'children': []},
                 {'name': 'alternate', 'type': 'bool', 'value': False},
+                {'name': 'Transopse', 'type': 'bool', 'value': False},
                 {'name': 'wait_before (s)', 'type': 'str', 'value': '[0.02, 0.02]', 'readonly': True},
                 ]},
             {'name': 'Out', 'type': 'group', 'children': [
@@ -191,6 +192,9 @@ class MainView(QMainWindow):
 
         x_title = self.params.param('Out', 'x').value()
         y_title = self.params.param('Out', 'y').value()
+        transposed = self.params.param('Sweep', 'Transpose image').value()
+        if transposed:
+            x_title, y_title = y_title, x_title
         self.mplkw.param('XLabel').setValue(x_title)
         self.mplkw.param('YLabel').setValue(y_title)
         self.mplkw.param('XLabel').setDefault(x_title)
@@ -201,8 +205,8 @@ class MainView(QMainWindow):
         order = self.filters.param('Filter', 'Order').value()
 
         if rfdata.data_dict['sweep_dim'] == 1:
-            x_data = rfdata.getData(x_title)
-            y_data = rfdata.getData(y_title)
+            x_data = rfdata.getData(x_title, transpose=transposed)
+            y_data = rfdata.getData(y_title, transpose=transposed)
             y_data = self.filter_fn(filter_title)(y_data, sigma, order)
             plot_kwargs = self.mplkw.toDict(dim=1)
             self.graphic.displayPlot(x_data, y_data, plot_kwargs=plot_kwargs, is_new_data=data_changed, is_new_file=file_changed)
@@ -215,7 +219,7 @@ class MainView(QMainWindow):
 
             alternate = self.params.param('Sweep', 'alternate').value()
 
-            img = rfdata.getData(out_title, alternate=alternate)
+            img = rfdata.getData(out_title, alternate=alternate, transpose=transposed)
             img = self.filter_fn(filter_title)(img, sigma, order)
             if self.filters.param('Colorbar', 'log').value():
                 img = np.log10(np.absolute(img))
@@ -228,6 +232,7 @@ class MainView(QMainWindow):
             extent = (min(x_start, x_stop)-abs(x_step)/2, max(x_start, x_stop)+abs(x_step)/2,
                       min(y_start, y_stop)-abs(y_step)/2, max(y_start, y_stop)+abs(y_step)/2)
             # extent = (x_start, x_stop, y_start, y_stop)
+            if transposed: extent = (extent[2], extent[3], extent[0], extent[1])
             if any([np.isnan(e) for e in extent]):
                 extent = None
         
@@ -313,6 +318,8 @@ class MainView(QMainWindow):
         #wait_before = {'name': 'wait_before', 'type': 'str', 'value': str(rfdata.data_dict['beforewait']), 'readonly': True},
         #self.params.param('Sweep').addChildren([alternate, wait_before])
         self.params.param('Sweep').addChildren([alternate])
+        transpose = {'name': 'Transpose image', 'type': 'bool', 'value': False}
+        self.params.param('Sweep').addChildren([transpose])
         
         # Polar/Cartesian
         polar_cart = self.filters.param('Polar/Cartesian')
