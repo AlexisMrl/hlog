@@ -234,10 +234,14 @@ class MPLWidget(QWidget):
         self.ax.set_ylabel(y_title)
 
         self.ax.grid(plot_kwargs.pop('grid', True))
-        self.ax.set_yscale(plot_kwargs.pop('yscale', 'linear'))
-        self.ax.set_xscale(plot_kwargs.pop('xscale', 'linear'))
+        yscale = plot_kwargs.pop('yscale', 'linear')
+        xscale = plot_kwargs.pop('xscale', 'linear')
+        self.ax.set_yscale(yscale if yscale != '' else 'linear')
+        self.ax.set_xscale(xscale if xscale != '' else 'linear')
 
         self.removeAll()
+        color = plot_kwargs.pop("color")
+        plot_kwargs["color"] = color if color!='' else None
         self.line = self.ax.plot(x_data, y_data, **plot_kwargs)[0]
         
         # redefine home coord

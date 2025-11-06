@@ -22,7 +22,7 @@ from src.Popup import Popup
 
 class hlog(QObject):
 
-    def __init__(self, path, app=None, file=None):
+    def __init__(self, path:str, app:QApplication=None, file=None):
         super().__init__()
         self.path = path
         self.app = app
@@ -80,7 +80,7 @@ class hlog(QObject):
     def onFileOpenError(self, exception):
         msg = 'Could not open file: '+self.current_data.filepath
         self.write(msg)
-        self.pop.popErrorExc('Error', exception, msg)
+        #self.pop.popErrorExc('Error', exception, msg)
         
 
 
