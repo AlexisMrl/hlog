@@ -1,5 +1,5 @@
 import pyHegel.commands as c
-import os, sys
+import os, sys, hashlib
 import numpy as np
 
 class ReadfileData:
@@ -7,6 +7,8 @@ class ReadfileData:
     def __init__(self, filepath):
         self.filepath = filepath
         self.filename = os.path.basename(filepath)
+        self.h = None
+        self.metadata = None
         self.data = []
         self.titles = []
         self.headers = []
@@ -166,6 +168,8 @@ class ReadfileData:
             except Exception as e:
                 raise e
 
+        self.h =  self.hash_file(self.filepath)
+        self.metadata = os.stat(self.filepath)
 
         if self.data[0].ndim == 1:
             self.data_dict['sweep_dim'] = 1
@@ -235,3 +239,13 @@ class ReadfileData:
         self.data_dict['computed_out']['data'].append(r_data)
         self.data_dict['computed_out']['data'].append(deg_data)
 
+
+    def hash_file(self, filepath: str) -> str:
+        if not os.path.isfile(filepath):
+            raise FileNotFoundError(filepath)
+
+        h = hashlib.sha256()
+        with open(filepath, "rb") as f:
+            for chunk in iter(lambda: f.read(8192), b""):
+                h.update(chunk)
+        return h.hexdigest()

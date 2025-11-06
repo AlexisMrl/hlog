@@ -7,9 +7,11 @@ import os, sys
 
 from views.MainView import MainView
 from widgets.FileTreeWidget import FileTreeWidget
+from widgets.PreviewWidget import PreviewWidget
 from src.ReadfileData import ReadfileData
 from src.QuickThread import QuickThread
 from src.Popup import Popup
+from src.Database import DBPlots
 
 # tasks:
 # v and h markers
@@ -37,12 +39,15 @@ class hlog(QObject):
         self.loading_thread = None
         self.current_data = None
         
-        
+        self.enable_previews = False
+        self.db = DBPlots()
+        self.previewer = PreviewWidget()
+
         # SIGNALS outgoing
         self.sig_fileOpened.connect(self.window.onFileOpened)
         
 
-        self.write(':)') # TODO: put a random quote
+        self.write(':)')
         if file: self.openFile(file)
     
     def write(self, text):
@@ -76,12 +81,36 @@ class hlog(QObject):
     def onFileOpened(self):
         self.write('File opened: '+self.current_data.filepath)
         self.window.onFileOpened(self.current_data)
+        if self.enable_previews:
+            self.db.add_fig(self.current_data, self.window.graphic.figure)
     
     def onFileOpenError(self, exception):
         msg = 'Could not open file: '+self.current_data.filepath
         self.write(msg)
         #self.pop.popErrorExc('Error', exception, msg)
-        
+    
+    def askPreview(self, path, pos):
+        if not self.enable_previews: return
+
+        png = self.db.get_fig(path)
+        if png:
+            self.previewer.show_preview(png, pos)
+        else:
+            self.previewer.hide()
+
+    def togglePreview(self):
+        if self.enable_previews: 
+            self.previewer.hide()
+        self.enable_previews = not self.enable_previews
+        text = f"preview "
+        text += "on" if self.enable_previews else "off"
+        self.window.statusBar().showMessage(text)
+
+    #def close(self):
+        #print("hi")
+        #self.previewer.hide()
+        #self.db.close()
+        #self.window.close()
 
 
 if __name__ == '__main__':

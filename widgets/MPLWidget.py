@@ -180,7 +180,7 @@ class MPLWidget(QWidget):
         self.ax.add_artist(self.hmarkers.line1); self.ax.add_artist(self.hmarkers.line2)
         self.ax.add_artist(self.resizable_line.line)
         self.canvas.draw()
-        print('end of afterDisplay')
+        #print('end of afterDisplay')
 
     def displayImage(self, image_data, extent, plot_kwargs={}, is_new_data=False, is_new_file=False, cbar_min_max=(0,1)):
         self.removeAll()

@@ -1,6 +1,6 @@
 from PyQt5.QtWidgets import QWidget, QFileSystemModel, QTreeView, QMenu
-from PyQt5.QtGui import QKeyEvent
-from PyQt5.QtCore import Qt, QProcess, QEvent
+from PyQt5.QtGui import QKeyEvent, QPaintEvent
+from PyQt5.QtCore import Qt, QProcess, QEvent, QPoint
 import os
 
 class FileTreeWidget(QWidget):
@@ -25,7 +25,9 @@ class FileTreeWidget(QWidget):
             self.view.keyPressEvent = self.onKeyPress
 
             self.view.doubleClicked.connect(self.readfile)
-           
+            # on item changed
+            self.view.selectionModel().currentChanged.connect(self.onItemChanged)
+
         def makeMenu(self, type):
             menu = QMenu()
             menu.addAction('Copy path', self.copyPath)
@@ -65,9 +67,28 @@ class FileTreeWidget(QWidget):
                 self.onKeyPress(QKeyEvent(QEvent.KeyPress, Qt.Key_Up, Qt.NoModifier))
             elif event.key() == Qt.Key_L:
                 self.onKeyPress(QKeyEvent(QEvent.KeyPress, Qt.Key_Right, Qt.NoModifier))
+            elif event.key() == Qt.Key_P:
+                self.parent.togglePreview()
             else:
                 QTreeView.keyPressEvent(self.view, event)
-        
+
+
+        def getCurrentItemScreenPos(self):
+            index = self.view.currentIndex()
+            if not index.isValid():
+                return None
+            rect = self.view.visualRect(index)
+            point = self.view.viewport().mapToGlobal(rect.bottomLeft())
+            return point + QPoint(0, 5)  # offset 5px below item
+
+        def onItemChanged(self, current, previous):
+            index = self.view.currentIndex()
+            type = 'file' if not self.model.isDir(index) else 'dir'
+            if type == "file":
+                path = self.model.filePath(current)
+                self.parent.askPreview(path, self.getCurrentItemScreenPos())
+                
+
         # ACTIONS
 
         def readfile(self, index=None):
