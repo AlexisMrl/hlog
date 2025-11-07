@@ -94,7 +94,7 @@ class MainView(QMainWindow):
     def _makeFilterTreeWidget(self):
     
         self.d1_filters = ['No filter', 'dy/dx']  # filters possible for 1d data
-        self.d2_filters = ['No filter', 'dy/dx', 'dx/dy', 'Gaussian filter'] # filters possible for 2d data
+        self.d2_filters = ['No filter', 'dz/dx', 'dz/dy', 'Gaussian filter'] # filters possible for 2d data
         children = [
             {'name': 'Filter', 'type': 'group', 'children': [
                 {'name': 'Type', 'type': 'list', 'values': self.d2_filters, 'default': 'No filter'},
@@ -403,10 +403,10 @@ class MainView(QMainWindow):
     def filter_fn(self, str_arg):
         if str_arg == 'No filter':
             return lambda data, simga, order: data
-        elif str_arg == 'dx/dy':
-            return lambda data, sigma, order: gaussian_filter1d(data, sigma=sigma, order=order, axis=1)
-        elif str_arg == 'dy/dx':
+        elif str_arg == 'dz/dy':
             return lambda data, sigma, order: gaussian_filter1d(data, sigma=sigma, order=order, axis=0)
+        elif str_arg == 'dz/dx':
+            return lambda data, sigma, order: gaussian_filter1d(data, sigma=sigma, order=order, axis=1)
         elif str_arg == 'Gaussian filter':
             return lambda data, sigma, order: gaussian_filter(data, sigma=sigma, order=order, mode='nearest')
     
