@@ -65,8 +65,9 @@ class MPLWidget(QWidget):
         # cursor
         self.cursor = Cursor(self.ax, useblit=True, color='black', linewidth=1)
         def toggleCursor(boo):
-            self.cursor.visible = not self.cursor.visible
+            self.cursor.visible = boo
         self.toggleCursor = toggleCursor
+        self.toggleCursor(False)
         
         # resizable line
         self.toolbar.addSeparator()
@@ -258,8 +259,14 @@ class MPLWidget(QWidget):
             self.vmarkers.setPosition(x0+x_padding, x1-x_padding)
             self.hmarkers.setPosition(y0+y_padding, y1-y_padding)
         
+        if not is_new_data and not is_new_file:
+            self.press_home()
+
         self.afterDisplay()
     
+    def press_home(self):
+        self.toolbar.actions()[0].trigger()
+
     def write(self, text):
         self.removeAll()
         self.ax.clear()
