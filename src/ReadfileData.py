@@ -118,16 +118,16 @@ class ReadfileData:
         self.data_dict['x']['range'] = range_x
         self.data_dict['y']['range'] = [start_y, stop_y, nbpts_y, step_y]
 
-    def _findHLLogValues(self, headers):
-        logs = {} # {dev_name: value, ... }
+    def _findLogValues(self, headers):
+        logs = {} # {key: value, ... }
         for line in headers:
             if not line.startswith('#com ...:='): continue
             try:
-                dev_name = line.split(' ')[2]
-                dev_name = dev_name[:-1]
+                key = line.split(' ')[2]
+                key = key[:-1]
                 value = line.split(' ')[-1]
                 value = value.replace('\n', '')
-                logs[dev_name] = value
+                logs[key] = value
             except:
                 pass
         return logs
@@ -218,6 +218,7 @@ class ReadfileData:
         deg_data = self.getData(deg_title, alternate=alternate)
         x_data = r_data * np.cos(np.radians(deg_data))
         y_data = r_data * np.sin(np.radians(deg_data))
+        x_data, y_data = x_data.T, y_data.T
 
         self.clearComputedData()
         self.data_dict['computed_out']['titles'].append(r_title + '_X')
