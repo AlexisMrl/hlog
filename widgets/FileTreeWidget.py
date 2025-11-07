@@ -53,25 +53,39 @@ class FileTreeWidget(QWidget):
             menu = self.makeMenu(type)
             
             menu.exec_(self.view.mapToGlobal(pos))
-        
+                
         def onKeyPress(self, event):
-            # if enter, open file
-            if event.key() == Qt.Key_Return or event.key() == Qt.Key_Space:
+            key = event.key()
+            modifiers = event.modifiers()
+
+            # Enter or Space -> open file
+            if key in (Qt.Key_Return, Qt.Key_Space):
                 self.readfile()
-            # h/j/k/l navigation
-            elif event.key() == Qt.Key_H:
-                self.onKeyPress(QKeyEvent(QEvent.KeyPress, Qt.Key_Left, Qt.NoModifier))
-            elif event.key() == Qt.Key_J:
-                self.onKeyPress(QKeyEvent(QEvent.KeyPress, Qt.Key_Down, Qt.NoModifier))
-            elif event.key() == Qt.Key_K:
-                self.onKeyPress(QKeyEvent(QEvent.KeyPress, Qt.Key_Up, Qt.NoModifier))
-            elif event.key() == Qt.Key_L:
-                self.onKeyPress(QKeyEvent(QEvent.KeyPress, Qt.Key_Right, Qt.NoModifier))
-            elif event.key() == Qt.Key_P:
+            elif key == Qt.Key_H:
+                self.view.keyPressEvent(QKeyEvent(QEvent.KeyPress, Qt.Key_Left, Qt.NoModifier))
+            elif key == Qt.Key_L:
+                self.view.keyPressEvent(QKeyEvent(QEvent.KeyPress, Qt.Key_Right, Qt.NoModifier))
+            elif key == Qt.Key_J:
+                steps = 5 if modifiers & Qt.ShiftModifier else 1
+                for _ in range(steps):
+                    self.view.keyPressEvent(QKeyEvent(QEvent.KeyPress, Qt.Key_Down, Qt.NoModifier))
+            elif key == Qt.Key_K:
+                steps = 5 if modifiers & Qt.ShiftModifier else 1
+                for _ in range(steps):
+                    self.view.keyPressEvent(QKeyEvent(QEvent.KeyPress, Qt.Key_Up, Qt.NoModifier))
+            # g / Shift+G navigation
+            elif key == Qt.Key_G:
+                if modifiers & Qt.ShiftModifier:
+                    self.view.keyPressEvent(QKeyEvent(QEvent.KeyPress, Qt.Key_End, Qt.NoModifier))
+                else:
+                    self.view.keyPressEvent(QKeyEvent(QEvent.KeyPress, Qt.Key_Home, Qt.NoModifier))
+
+            # Toggle preview
+            elif key == Qt.Key_P:
                 self.parent.togglePreview()
+
             else:
                 QTreeView.keyPressEvent(self.view, event)
-
 
         def getCurrentItemScreenPos(self):
             index = self.view.currentIndex()

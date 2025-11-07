@@ -112,6 +112,8 @@ class hlog(QObject):
         #self.db.close()
         #self.window.close()
 
+    def close(self):
+        self.previewer.hide()
 
 if __name__ == '__main__':
     # Start with no arguments => current directory

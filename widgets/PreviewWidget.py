@@ -1,6 +1,8 @@
 from PyQt5.QtWidgets import QLabel, QWidget
-from PyQt5.QtCore import Qt
+from PyQt5.QtCore import Qt, QTimer
 from PyQt5.QtGui import QPixmap
+
+# TODO: follow window
 
 class PreviewWidget(QWidget):
     def __init__(self, parent=None):
@@ -29,3 +31,5 @@ class PreviewWidget(QWidget):
         # Show without activating focus
         self.setAttribute(Qt.WA_ShowWithoutActivating)
         self.show()
+
+        QTimer.singleShot(30_000, self.hide)

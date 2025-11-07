@@ -57,29 +57,9 @@ class MainView(QMainWindow):
         # variables
         self.displayed_data = None # store the data displayed in the plot
         # {dim: 1, data: (x, y)} or {dim: 2, data: (img, (x_start, x_stop, y_start, y_stop))}
-        
-    #     # Toolbar
-    #     self._createToolbar()
 
-    # def _createToolbar(self):
-    #     toolbar = QToolBar("Main Toolbar")
-    #     toolbar.setMovable(False)
-    #     self.addToolBar(toolbar)
-
-    #     # Preview menu
-    #     preview_menu = QMenu("Preview", self)
-
-    #     # Toggle action
-    #     self.action_enable_preview = QAction("Enable", self, checkable=True)
-    #     self.action_enable_preview.setChecked(True)
-    #     self.action_enable_preview.toggled.connect(self.on_toggle_preview)
-
-    #     preview_menu.addAction(self.action_enable_preview)
-
-    #     # Add menu to toolbar
-    #     preview_menu_action = toolbar.addAction("Preview")
-    #     preview_menu_action.setMenu(preview_menu)
-    #     #preview_menu_action.setPopupMode(toolbar.InstantPopup)
+    def closeEvent(self, event):
+        self.controller.close()
 
     def _makeParamTreeWidget(self):
         children = [
