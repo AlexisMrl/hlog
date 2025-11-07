@@ -403,6 +403,8 @@ class MainView(QMainWindow):
     def filter_fn(self, str_arg):
         if str_arg == 'No filter':
             return lambda data, simga, order: data
+        elif str_arg == 'dy/dx':
+            return lambda data, sigma, order: gaussian_filter1d(data, sigma=sigma, order=order, axis=0)
         elif str_arg == 'dz/dy':
             return lambda data, sigma, order: gaussian_filter1d(data, sigma=sigma, order=order, axis=0)
         elif str_arg == 'dz/dx':
