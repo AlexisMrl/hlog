@@ -82,6 +82,7 @@ class hlog(QObject):
         self.write('File opened: '+self.current_data.filepath)
         self.window.onFileOpened(self.current_data)
         if self.enable_previews:
+            self.previewer.hide_preview()
             self.db.add_fig(self.current_data, self.window.graphic.figure)
     
     def onFileOpenError(self, exception):
@@ -96,11 +97,11 @@ class hlog(QObject):
         if png:
             self.previewer.show_preview(png, pos)
         else:
-            self.previewer.hide()
+            self.previewer.hide_preview()
 
     def togglePreview(self):
         if self.enable_previews: 
-            self.previewer.hide()
+            self.previewer.hide_preview()
         self.enable_previews = not self.enable_previews
         text = f"preview "
         text += "on" if self.enable_previews else "off"

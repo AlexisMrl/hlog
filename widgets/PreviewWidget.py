@@ -32,4 +32,7 @@ class PreviewWidget(QWidget):
         self.setAttribute(Qt.WA_ShowWithoutActivating)
         self.show()
 
-        QTimer.singleShot(30_000, self.hide)
+        QTimer.singleShot(10_000, self.hide_preview)
+
+    def hide_preview(self):
+        self.hide()
