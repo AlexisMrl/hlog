@@ -6,4 +6,6 @@ fix Attribute Qt::AA_EnableHighDpiScaling must be set before QCoreApplication is
 SettingTreeWidget:
   remove not current dim setting
 	grid for 2d
+Autoupdate while sweeping
+rfdata: time taken
 

@@ -51,7 +51,7 @@ children=[
 ]
 
 
-class SettingTreeWidget(QWidget):
+class SettingTreeView:
     
     def __init__(self):
         super().__init__()
@@ -76,12 +76,15 @@ class SettingTreeWidget(QWidget):
         data_dict = rfdata.data_dict
         out_titles = data_dict['out']['titles']
         self.dim = dim = rfdata.data_dict['sweep_dim']
-    
         if dim == 1:
+            # TODO: remove 2dim parameters
             x_title, y_title = out_titles[:2]
         elif dim == 2:
+            # TODO: remove 1dim parameters
             x_title, y_title = rfdata.data_dict['x']['title'], rfdata.data_dict['y']['title']
             p.param('ZLabel').setValue(out_titles[0])
+            #self.mplkw.param('ZLabel').setValue(out_title)
+            #self.mplkw.param('ZLabel').setDefault(out_title)
 
         p.param('Title').setValue(rfdata.filename)
         p.param('Title').setDefault(rfdata.filename)
@@ -89,6 +92,7 @@ class SettingTreeWidget(QWidget):
         p.param('XLabel').setDefault(x_title)
         p.param('YLabel').setValue(y_title)
         p.param('YLabel').setDefault(y_title)
+
         
 
     def get_kw(self, dim=1):
@@ -103,7 +107,6 @@ class SettingTreeWidget(QWidget):
                 continue
             data[name] = value
 
-        print(data)
         cls = {1:Kw1d, 2:Kw2d}[dim]
         kw = cls(**{k: v for k, v in data.items() if k in cls.__annotations__})
         return kw

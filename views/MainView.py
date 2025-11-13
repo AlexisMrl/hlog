@@ -5,9 +5,9 @@ import pyqtgraph as pg
 
 from widgets.MPLWidget import MPLWidget
 from widgets.MPLTraceWidget import MPLTraceWidget
-from widgets.FilterTreeWidget import FilterTreeWidget
-from widgets.SettingTreeWidget import SettingTreeWidget
-from widgets.SweepTreeWidget import SweepTreeWidget
+from views.FilterTreeView import FilterTreeView
+from views.SettingTreeView import SettingTreeView
+from views.SweepTreeView import SweepTreeView
 
 
 from scipy.ndimage import gaussian_filter1d, gaussian_filter
@@ -32,13 +32,15 @@ class MainView(QMainWindow):
         
         # main layout
         # trees
-        self.sweep_tree = SweepTreeWidget()
-        self.filter_tree= FilterTreeWidget()
-        self.setting_tree = SettingTreeWidget()
+        self.sweep_tree = SweepTreeView()
+        self.filter_tree= FilterTreeView()
+        self.setting_tree = SettingTreeView()
+
         # graph tab:
         self.graphic_tabs = QTabWidget()
         self.graphic_tabs.setTabsClosable(True)
         self.graphic_tabs.tabCloseRequested.connect(self.on_graph_close)
+        self.graphic_to_rfdata = {}
 
         # left splitter (tree_view, param_tree)
         self.h_splitter_left = QSplitter(2)
@@ -53,6 +55,8 @@ class MainView(QMainWindow):
         self.h_splitter_right = QSplitter(2)
         self.h_splitter_right.addWidget(self.graphic_tabs)
         self.h_splitter_right.addWidget(self.setting_tabs)
+        self.h_splitter_right.setSizes([300, 50])
+
 
         # Main splitter with (left, right)
         self.v_splitter = QSplitter()
@@ -60,11 +64,7 @@ class MainView(QMainWindow):
         self.v_splitter.addWidget(self.h_splitter_right)
         self.setCentralWidget(self.v_splitter)
         self.v_splitter.setSizes([300, 500])
-        
-        # variables
-        self.displayed_data = None # store the data displayed in the plot
-        # {dim: 1, data: (x, y)} or {dim: 2, data: (img, (x_start, x_stop, y_start, y_stop))}
-
+    
     def closeEvent(self, event):
         self.controller.close()
 
@@ -74,39 +74,40 @@ class MainView(QMainWindow):
         self.graphic_tabs.setCurrentWidget(graphic)
         return graphic
     
-    def current_graph(self):
+    def current_graph(self, force_new:bool):
         graph = self.graphic_tabs.currentWidget()
-        if not graph: return self.new_graph()
+        if not graph:
+            return self.new_graph() if force_new else None
         return graph
     
     def on_graph_close(self, index):
         self.graphic_tabs.removeTab(index)
 
-    def on_file_opened(self, rfdata):
-        self.update_views(rfdata)
-
-    def update_views(self, rfdata):  
+    def on_file_opened(self, rfdata, new_tab_asked:bool):
+        graph = self.new_graph(name=rfdata.filename) if new_tab_asked else self.current_graph(force_new=True)
+    
         self.block_update = True
         self.sweep_tree.new_rfdata(rfdata)
         self.filter_tree.new_rfdata(rfdata)
         self.setting_tree.new_rfdata(rfdata)
         self.block_update = False
-        self.update_plot(rfdata)#, data_changed=True, file_changed=True)
+        
+        # connect to new plot
+        update_plot = lambda *args: self.update_plot(rfdata, graph)
+        self.filter_tree.parameters.sigTreeStateChanged.connect(update_plot)
+        self.setting_tree.parameters.sigTreeStateChanged.connect(update_plot)
+        self.sweep_tree.parameters.sigTreeStateChanged.connect(update_plot)
+
+        update_plot()#, data_changed=True, file_changed=True)
 
 
-    def update_plot(self, rfdata):#, data_changed=False, file_changed=False, new_tab=False):
+    def update_plot(self, rfdata, graphic):#, data_changed=False, file_changed=False, new_tab=False):
         # called on file open or when a parameter is changed
         if self.block_update: return
 
         self.block_update = True
-        new_tab=False
-        graphic = self.new_graph(name=rfdata.filename) if new_tab else self.graphic_tabs.currentWidget()
-        
-        
-        # reset variables
-        # TODO: remove:
-        #self.displayed_data = None
-        # TODO: idk
+
+        # reset traces
         self.traces = []
         
         # # Polar/Cartesian conversion
@@ -127,44 +128,32 @@ class MainView(QMainWindow):
         #self.mplkw.param('YLabel').setValue(y_title)
         #self.mplkw.param('XLabel').setDefault(x_title)
         #self.mplkw.param('YLabel').setDefault(y_title)
-        
-        #filter_title = self.filter_tree.parameters.param('Filter', 'Type').value()
-        #sigma = self.filter_tree.parameters.param('Filter', 'Sigma').value()
-        #order = self.filter_tree.parameters.param('Filter', 'Order').value()
 
         x_title, y_title = self.sweep_tree.get_xy_titles()
 
         if rfdata.data_dict['sweep_dim'] == 1:
             x_data = rfdata.get_data(x_title)
             y_data = rfdata.get_data(y_title)
-            #y_data = self.filter_fn(filter_title)(y_data, sigma, order)
+            y_data = self.filter_tree.apply_on(y_data)
             keywords_for_plot = self.setting_tree.get_kw(dim=1).to_dict()
 
             graphic.display_plot(x_data, y_data, plot_kwargs=keywords_for_plot)#, is_new_data=data_changed, is_new_file=file_changed)
-            
-            #self.displayed_data = {'dim': 1, 'data': (x_data, y_data)}
 
         elif rfdata.data_dict['sweep_dim'] == 2:
             out_title = self.sweep_tree.get_z_title()
-            alternate = self.sweep_tree.is_alternate()
-            transposed = self.sweep_tree.is_transposed()
-            #self.mplkw.param('ZLabel').setValue(out_title)
-            #self.mplkw.param('ZLabel').setDefault(out_title)
-
-
-            #img = self.filter_fn(filter_title)(img, sigma, order)
-            #if self.filters.param('Colorbar', 'log').value():
-            #    img = np.log10(np.absolute(img))
+            alternate = self.sweep_tree.alternate_checked()
+            #transpose = self.sweep_tree.transpose_checked()
 
             #cbar_min = self.filters.param('Colorbar', 'min').value()
             #cbar_max = self.filters.param('Colorbar', 'max').value()
             
-            img = rfdata.get_data(out_title, alternate=alternate, transpose=transposed)
-            extent = rfdata.get_extent(transpose=transposed)
+            img = rfdata.get_data(out_title, alternate=alternate)
+            img = self.filter_tree.apply_on(img)
+
+            extent = rfdata.get_extent()
         
             keywords_for_plot = self.setting_tree.get_kw(dim=2).to_dict()
             graphic.display_image(img, extent, plot_kwargs=keywords_for_plot)#, is_new_data=data_changed, is_new_file=file_changed, cbar_min_max=(cbar_min, cbar_max))
-            #self.displayed_data = {'dim': 2, 'data': (img, (x_start, x_stop, y_start, y_stop))}
 
         self.block_update = False
 
@@ -234,18 +223,3 @@ class MainView(QMainWindow):
         self.trace_window.clear()
         self.current_graph().clearCrosses()
         self.current_graph().canvas.draw()
-
-    ## UTILS
-
-    def filter_fn(self, str_arg):
-        if str_arg == 'No filter':
-            return lambda data, simga, order: data
-        elif str_arg == 'dy/dx':
-            return lambda data, sigma, order: gaussian_filter1d(data, sigma=sigma, order=order, axis=0)
-        elif str_arg == 'dz/dy':
-            return lambda data, sigma, order: gaussian_filter1d(data, sigma=sigma, order=order, axis=0)
-        elif str_arg == 'dz/dx':
-            return lambda data, sigma, order: gaussian_filter1d(data, sigma=sigma, order=order, axis=1)
-        elif str_arg == 'Gaussian filter':
-            return lambda data, sigma, order: gaussian_filter(data, sigma=sigma, order=order, mode='nearest')
-    

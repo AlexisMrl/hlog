@@ -22,7 +22,7 @@ children = [
 ] # these are just placeholders, they are filled/rewritten in onFileOpened
 
 
-class SweepTreeWidget:
+class SweepTreeView:
     
     def __init__(self):
         super().__init__()
@@ -76,35 +76,37 @@ class SweepTreeWidget:
                 {'name': 'range', 'type': 'str', 'value': range_to_string(y_range), 'readonly': True}]}
             p.param('Sweep').addChildren([x_sweep, y_sweep])
 
+            alternate = {'name': 'alternate', 'type': 'bool', 'value': data_dict['alternate']}
+            p.param('Sweep').addChildren([alternate])
 
 
 
         # logs
         p.param('Header', 'config').setValue(str(data_dict['config']))
         p.param('Header', 'comments').setValue(str(data_dict['comments']))
-        alternate = {'name': 'alternate', 'type': 'bool', 'value': data_dict['alternate']}
         #wait_before = {'name': 'wait_before', 'type': 'str', 'value': str(rfdata.data_dict['beforewait']), 'readonly': True},
         #self.params.param('Sweep').addChildren([alternate, wait_before])
-        p.param('Sweep').addChildren([alternate])
-        transpose = {'name': 'Transpose', 'type': 'bool', 'value': False}
-        p.param('Sweep').addChildren([transpose])
+        
+        #transpose = {'name': 'Transpose', 'type': 'bool', 'value': False}
+        #p.param('Sweep').addChildren([transpose])
         
     def get_xy_titles(self):
         p = self.parameters
         x_title = p.param('Out', 'x').value()
         y_title = p.param('Out', 'y').value()
-        if self.is_transposed():
+        if self.transpose_checked():
             x_title, y_title = y_title, x_title
         return x_title, y_title
     
     def get_z_title(self):
         return self.parameters.param('Out', 'z').value()
 
-    def is_alternate(self):
+    def alternate_checked(self):
         return self.parameters.param('Sweep', 'alternate').value()
     
-    def is_transposed(self):
-        return self.parameters.param('Sweep', 'Transpose').value()
+    def transpose_checked(self):
+        return False
+        #return self.parameters.param('Sweep', 'Transpose').value()
 
 def range_to_string(ranges):
     return '[{:.3g}, {:.3g}], npts: {}, step: {:.3g}'.format(*ranges)

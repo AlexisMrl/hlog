@@ -21,6 +21,8 @@ class ReadfileData:
         elif title in self.data_dict['computed_out']['titles']:
             i = self.data_dict['computed_out']['titles'].index(title)
             data_cp = self.data_dict['computed_out']['data'][i].copy()
+        else:
+            raise KeyError()
         if self.data_dict['sweep_dim'] == 1:
             return data_cp
         if self.data_dict['sweep_dim'] == 2:
@@ -28,21 +30,21 @@ class ReadfileData:
             if alternate:
                 # flip odd rows
                 data_cp[1::2] = data_cp[1::2, ::-1]
-            if transpose:
-                data_cp = data_cp.T
+            #if transpose:
+                #data_cp = data_cp.T
             # transpose by default
             return data_cp.T
     
     def get_extent(self, transpose=False):
         x_start, x_stop, x_nbpts, x_step = self.data_dict['x']['range']
         y_start, y_stop, y_nbpts, y_step = self.data_dict['y']['range']
+        # extent = (x_start, x_stop, y_start, y_stop)
         extent = (
             min(x_start, x_stop)-abs(x_step)/2, 
             max(x_start, x_stop)+abs(x_step)/2,
             min(y_start, y_stop)-abs(y_step)/2, 
             max(y_start, y_stop)+abs(y_step)/2)
-            # extent = (x_start, x_stop, y_start, y_stop)
-        if transpose: extent = (extent[2], extent[3], extent[0], extent[1])
+        #if transpose: extent = (extent[2], extent[3], extent[0], extent[1])
         if any([np.isnan(e) for e in extent]):
                 extent = None
         return extent

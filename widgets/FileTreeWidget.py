@@ -126,7 +126,8 @@ class FileTreeWidget(QWidget):
         def openInNewTab(self):
             index = self.view.currentIndex()
             path = self.model.filePath(index)
-            print("feature not implemented")
+            if not self.model.isDir(index):
+                self.parent.open_file(path, new_tab=True)
         
         def goUpDir(self):
             path = self.model.filePath(self.view.rootIndex())

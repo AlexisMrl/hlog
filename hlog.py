@@ -51,12 +51,11 @@ class hlog(QObject):
         self.write(':)')
         if file: self.open_file(file)
     
-    sig_fileOpened = pyqtSignal(ReadfileData)
+    sig_fileOpened = pyqtSignal(ReadfileData, bool)
 
     
     def write(self, text):
         self.main_view.statusBar().showMessage(text)
-        self.main_view.current_graph().write(text)
 
     def changePath(self, path):
         if not os.path.exists(path):
@@ -67,8 +66,9 @@ class hlog(QObject):
         self.path = path
         print('Path changed to:', path)
         
-    def open_file(self, path):
+    def open_file(self, path, new_tab_asked=False):
         self.write('Opening file: '+path)
+        self.new_tab_asked = new_tab_asked
 
         if path[-3:]=='txt': 
             # ReadfileData in a thread
@@ -85,7 +85,7 @@ class hlog(QObject):
         # called on thread success
         filepath = fn_kwargs.get("filepath")
         self.write('File opened: '+filepath)
-        self.sig_fileOpened.emit(rfdata)
+        self.sig_fileOpened.emit(rfdata, self.new_tab_asked)
         
         if self.enable_previews:
             self.db.add_fig(self.current_data, self.main_view.graphic.figure)

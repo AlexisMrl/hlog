@@ -173,6 +173,8 @@ class MPLWidget(QWidget):
         if self.line:
             self.line.remove()
             self.line = None
+        
+        self.ax.clear()
     
     def afterDisplay(self):
         #self.figure.tight_layout()
@@ -270,6 +272,5 @@ class MPLWidget(QWidget):
 
     def write(self, text):
         self.remove_graph_elements()
-        self.ax.clear()
         self.text = self.ax.text(0.5, 0.5, text, ha="center", va="center", fontsize=12, color="gray")
         self.canvas.draw()
