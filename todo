@@ -1,0 +1,5 @@
+clear imports
+remove tree_view from hlog
+test hlog.py --with-app <wrong-file-path>
+fix alterante for not finished first line 2d sweep
+fix Attribute Qt::AA_EnableHighDpiScaling must be set before QCoreApplication is created.

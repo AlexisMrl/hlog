@@ -30,7 +30,7 @@ class hlog(QObject):
         self.app = app
 
         self.file_tree = FileTreeWidget(self)
-        self.window = MainView(self, self.file_tree.view)
+        self.main_view = MainView(self, self.file_tree.view)
         self.pop = Popup()
         self.cb = QApplication.clipboard()
 
@@ -44,15 +44,19 @@ class hlog(QObject):
         self.previewer = PreviewWidget()
 
         # SIGNALS outgoing
-        self.sig_fileOpened.connect(self.window.onFileOpened)
-        
+        self.sig_fileOpened.connect(self.main_view.on_file_opened)
+        self.sig_fileOpened.connect(self.previewer.on_file_opened)
+
 
         self.write(':)')
-        if file: self.openFile(file)
+        if file: self.open_file(file)
+    
+    sig_fileOpened = pyqtSignal(ReadfileData)
+
     
     def write(self, text):
-        self.window.statusBar().showMessage(text)
-        self.window.graphic.write(text)
+        self.main_view.statusBar().showMessage(text)
+        self.main_view.current_graph().write(text)
 
     def changePath(self, path):
         if not os.path.exists(path):
@@ -63,14 +67,13 @@ class hlog(QObject):
         self.path = path
         print('Path changed to:', path)
         
-    sig_fileOpened = pyqtSignal(ReadfileData)
-    def openFile(self, path):
+    def open_file(self, path):
         self.write('Opening file: '+path)
 
         if path[-3:]=='txt': 
-            # readfile in a thread
-            self.current_data = ReadfileData(path)
-            self.loading_thread = QuickThread(self.current_data.readfile)
+            # ReadfileData in a thread
+            # ReadfileData.from_filepath(path)
+            self.loading_thread = QuickThread(ReadfileData.from_filepath, filepath=path)
             self.loading_thread.sig_finished.connect(self.onFileOpened)
             self.loading_thread.sig_error.connect(self.onFileOpenError)
             self.loading_thread.start()
@@ -78,18 +81,23 @@ class hlog(QObject):
         else:
             self.write('File type not supported :(\n'+path)
         
-    def onFileOpened(self):
-        self.write('File opened: '+self.current_data.filepath)
-        self.window.onFileOpened(self.current_data)
+    def onFileOpened(self, rfdata, fn_args, fn_kwargs):
+        # called on thread success
+        filepath = fn_kwargs.get("filepath")
+        self.write('File opened: '+filepath)
+        self.sig_fileOpened.emit(rfdata)
+        
         if self.enable_previews:
-            self.previewer.hide_preview()
-            self.db.add_fig(self.current_data, self.window.graphic.figure)
+            self.db.add_fig(self.current_data, self.main_view.graphic.figure)
     
-    def onFileOpenError(self, exception):
-        msg = 'Could not open file: '+self.current_data.filepath
-        self.write(msg)
-        #self.pop.popErrorExc('Error', exception, msg)
+    def onFileOpenError(self, exception, fn_args, fn_kwargs):
+        filepath = fn_kwargs.get("filepath")
+        self.write('Could not open file: '+filepath)
+        print(exception)
     
+
+
+
     def askPreview(self, path, pos):
         if not self.enable_previews: return
 
@@ -105,13 +113,13 @@ class hlog(QObject):
         self.enable_previews = not self.enable_previews
         text = f"preview "
         text += "on" if self.enable_previews else "off"
-        self.window.statusBar().showMessage(text)
+        self.main_view.statusBar().showMessage(text)
 
     #def close(self):
         #print("hi")
         #self.previewer.hide()
         #self.db.close()
-        #self.window.close()
+        #self.main_view.close()
 
     def close(self):
         self.previewer.hide()
@@ -148,8 +156,8 @@ if __name__ == '__main__':
     splash.show()
 
     hl = hlog(path, app, file=file)
-    splash.finish(hl.window)
-    hl.window.show()
+    splash.finish(hl.main_view)
+    hl.main_view.show()
 
     if app is not None:
         sys.exit(app.exec_())

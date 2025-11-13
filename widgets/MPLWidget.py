@@ -241,7 +241,7 @@ class MPLWidget(QWidget):
         self.ax.set_xscale(xscale if xscale != '' else 'linear')
 
         self.removeAll()
-        color = plot_kwargs.pop("color")
+        color = plot_kwargs.pop("color", '')
         plot_kwargs["color"] = color if color!='' else None
         self.line = self.ax.plot(x_data, y_data, **plot_kwargs)[0]
         

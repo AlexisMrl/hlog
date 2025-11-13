@@ -9,6 +9,7 @@ import pyqtgraph as pg
 
 # widget displayed when the user clicks on a point
 # 2 plot displayed: the vertical and horizontal slice of the data
+# TODO: clear on keypress
 
 class MPLTraceWidget(QWidget):
     def __init__(self, parent=None):

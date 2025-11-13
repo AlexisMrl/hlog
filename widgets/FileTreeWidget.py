@@ -30,6 +30,7 @@ class FileTreeWidget(QWidget):
 
         def makeMenu(self, type):
             menu = QMenu()
+            menu.addAction('Open in new tab', self.openInNewTab)
             menu.addAction('Copy path', self.copyPath)
             file_action = [('Open in notepad', self.openInTE), ('Read file', self.readfile)]
             dir_action = [('Open', self.openDir)]
@@ -110,7 +111,7 @@ class FileTreeWidget(QWidget):
                 index = self.view.currentIndex()
             path = self.model.filePath(index)
             if not self.model.isDir(index):
-                self.parent.openFile(path)
+                self.parent.open_file(path)
 
         def openInTE(self):
             # try to open in text editor
@@ -121,6 +122,11 @@ class FileTreeWidget(QWidget):
                 process.startDetached('notepad.exe', [path])
             except:
                 self.parent.write('Could not open in text editor: '+path)
+
+        def openInNewTab(self):
+            index = self.view.currentIndex()
+            path = self.model.filePath(index)
+            print("feature not implemented")
         
         def goUpDir(self):
             path = self.model.filePath(self.view.rootIndex())

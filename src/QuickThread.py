@@ -7,6 +7,9 @@ class QuickThread(QThread):
     # the function to run is passed as a parameter
     # the signal is emitted with the return value of the function
 
+    sig_finished = QtCore.pyqtSignal(object, tuple, dict)
+    sig_error = QtCore.pyqtSignal(object, tuple, dict)
+
     def __init__(self, function, *args, **kwargs):
         super().__init__()
         self.function = function
@@ -17,11 +20,6 @@ class QuickThread(QThread):
     def run(self):
         try:
             self.result = self.function(*self.args, **self.kwargs)
+            self.sig_finished.emit(self.result, self.args, self.kwargs)
         except Exception as e:
-            self.sig_error.emit(e)
-        self.sig_finished.emit(self.result)
-
-    sig_finished = QtCore.pyqtSignal(object)
-    sig_error = QtCore.pyqtSignal(object)
-
-    
+            self.sig_error.emit(e, self.args, self.kwargs)
