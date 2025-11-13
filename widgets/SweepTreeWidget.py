@@ -7,7 +7,7 @@ children = [
         {'name': 'dev1', 'type': 'group', 'children': []},
         {'name': 'dev2', 'type': 'group', 'children': []},
         {'name': 'alternate', 'type': 'bool', 'value': False},
-        {'name': 'Transopse', 'type': 'bool', 'value': False},
+        {'name': 'Transpose', 'type': 'bool', 'value': False},
         {'name': 'wait_before (s)', 'type': 'str', 'value': '[0.02, 0.02]', 'readonly': True},
         ]},
     {'name': 'Out', 'type': 'group', 'children': [
@@ -86,7 +86,7 @@ class SweepTreeWidget:
         #wait_before = {'name': 'wait_before', 'type': 'str', 'value': str(rfdata.data_dict['beforewait']), 'readonly': True},
         #self.params.param('Sweep').addChildren([alternate, wait_before])
         p.param('Sweep').addChildren([alternate])
-        transpose = {'name': 'Transpose image', 'type': 'bool', 'value': False}
+        transpose = {'name': 'Transpose', 'type': 'bool', 'value': False}
         p.param('Sweep').addChildren([transpose])
         
     def get_xy_titles(self):
@@ -104,7 +104,7 @@ class SweepTreeWidget:
         return self.parameters.param('Sweep', 'alternate').value()
     
     def is_transposed(self):
-        return self.parameters.param('Sweep', 'Transpose image').value()
+        return self.parameters.param('Sweep', 'Transpose').value()
 
 def range_to_string(ranges):
     return '[{:.3g}, {:.3g}], npts: {}, step: {:.3g}'.format(*ranges)

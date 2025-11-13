@@ -32,6 +32,21 @@ class ReadfileData:
                 data_cp = data_cp.T
             # transpose by default
             return data_cp.T
+    
+    def get_extent(self, transpose=False):
+        x_start, x_stop, x_nbpts, x_step = self.data_dict['x']['range']
+        y_start, y_stop, y_nbpts, y_step = self.data_dict['y']['range']
+        extent = (
+            min(x_start, x_stop)-abs(x_step)/2, 
+            max(x_start, x_stop)+abs(x_step)/2,
+            min(y_start, y_stop)-abs(y_step)/2, 
+            max(y_start, y_stop)+abs(y_step)/2)
+            # extent = (x_start, x_stop, y_start, y_stop)
+        if transpose: extent = (extent[2], extent[3], extent[0], extent[1])
+        if any([np.isnan(e) for e in extent]):
+                extent = None
+        return extent
+        
 
 
 

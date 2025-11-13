@@ -68,9 +68,9 @@ class MainView(QMainWindow):
     def closeEvent(self, event):
         self.controller.close()
 
-    def new_graph(self, closable=True):
+    def new_graph(self, name="graph"):
         graphic = MPLWidget(self)
-        self.graphic_tabs.addTab(graphic, "graph")
+        self.graphic_tabs.addTab(graphic, name)
         self.graphic_tabs.setCurrentWidget(graphic)
         return graphic
     
@@ -82,17 +82,31 @@ class MainView(QMainWindow):
     def on_graph_close(self, index):
         self.graphic_tabs.removeTab(index)
 
-    def updatePlot(self, rfdata, data_changed=False, file_changed=False, new_tab=False):
+    def on_file_opened(self, rfdata):
+        self.update_views(rfdata)
+
+    def update_views(self, rfdata):  
+        self.block_update = True
+        self.sweep_tree.new_rfdata(rfdata)
+        self.filter_tree.new_rfdata(rfdata)
+        self.setting_tree.new_rfdata(rfdata)
+        self.block_update = False
+        self.update_plot(rfdata)#, data_changed=True, file_changed=True)
+
+
+    def update_plot(self, rfdata):#, data_changed=False, file_changed=False, new_tab=False):
         # called on file open or when a parameter is changed
         if self.block_update: return
 
-        graphic = self.new_graph() if new_tab else self.graphic_tabs.currentWidget()
-        self.graphic_tabs.setTabText(self.graphic_tabs.indexOf(graphic), rfdata.filename)
-
         self.block_update = True
+        new_tab=False
+        graphic = self.new_graph(name=rfdata.filename) if new_tab else self.graphic_tabs.currentWidget()
+        
         
         # reset variables
-        self.displayed_data = None
+        # TODO: remove:
+        #self.displayed_data = None
+        # TODO: idk
         self.traces = []
         
         # # Polar/Cartesian conversion
@@ -110,7 +124,6 @@ class MainView(QMainWindow):
         # else:
         #     rfdata.clearComputedData()
         # self._updateOutTitles()
-        x_title, y_title = self.sweep_tree.get_xy_titles()
         #self.mplkw.param('YLabel').setValue(y_title)
         #self.mplkw.param('XLabel').setDefault(x_title)
         #self.mplkw.param('YLabel').setDefault(y_title)
@@ -118,14 +131,18 @@ class MainView(QMainWindow):
         #filter_title = self.filter_tree.parameters.param('Filter', 'Type').value()
         #sigma = self.filter_tree.parameters.param('Filter', 'Sigma').value()
         #order = self.filter_tree.parameters.param('Filter', 'Order').value()
-        print(x_title, y_title)
+
+        x_title, y_title = self.sweep_tree.get_xy_titles()
+
         if rfdata.data_dict['sweep_dim'] == 1:
             x_data = rfdata.get_data(x_title)
             y_data = rfdata.get_data(y_title)
             #y_data = self.filter_fn(filter_title)(y_data, sigma, order)
-            #plot_kwargs = self.mplkw.toDict(dim=1)
-            graphic.displayPlot(x_data, y_data)#, plot_kwargs=plot_kwargs, is_new_data=data_changed, is_new_file=file_changed)
-            self.displayed_data = {'dim': 1, 'data': (x_data, y_data)}
+            keywords_for_plot = self.setting_tree.get_kw(dim=1).to_dict()
+
+            graphic.display_plot(x_data, y_data, plot_kwargs=keywords_for_plot)#, is_new_data=data_changed, is_new_file=file_changed)
+            
+            #self.displayed_data = {'dim': 1, 'data': (x_data, y_data)}
 
         elif rfdata.data_dict['sweep_dim'] == 2:
             out_title = self.sweep_tree.get_z_title()
@@ -135,7 +152,6 @@ class MainView(QMainWindow):
             #self.mplkw.param('ZLabel').setDefault(out_title)
 
 
-            img = rfdata.get_data(out_title, alternate=alternate, transpose=transposed)
             #img = self.filter_fn(filter_title)(img, sigma, order)
             #if self.filters.param('Colorbar', 'log').value():
             #    img = np.log10(np.absolute(img))
@@ -143,19 +159,12 @@ class MainView(QMainWindow):
             #cbar_min = self.filters.param('Colorbar', 'min').value()
             #cbar_max = self.filters.param('Colorbar', 'max').value()
             
-            x_start, x_stop, x_nbpts, x_step = rfdata.data_dict['x']['range']
-            y_start, y_stop, y_nbpts, y_step = rfdata.data_dict['y']['range']
-            extent = (min(x_start, x_stop)-abs(x_step)/2, max(x_start, x_stop)+abs(x_step)/2,
-                      min(y_start, y_stop)-abs(y_step)/2, max(y_start, y_stop)+abs(y_step)/2)
-            # extent = (x_start, x_stop, y_start, y_stop)
-            if transposed: extent = (extent[2], extent[3], extent[0], extent[1])
-            if any([np.isnan(e) for e in extent]):
-                extent = None
+            img = rfdata.get_data(out_title, alternate=alternate, transpose=transposed)
+            extent = rfdata.get_extent(transpose=transposed)
         
-            #plot_kwargs = self.mplkw.toDict(dim=2)
-
-            graphic.displayImage(img, extent)#, plot_kwargs=plot_kwargs, is_new_data=data_changed, is_new_file=file_changed, cbar_min_max=(cbar_min, cbar_max))
-            self.displayed_data = {'dim': 2, 'data': (img, (x_start, x_stop, y_start, y_stop))}
+            keywords_for_plot = self.setting_tree.get_kw(dim=2).to_dict()
+            graphic.display_image(img, extent, plot_kwargs=keywords_for_plot)#, is_new_data=data_changed, is_new_file=file_changed, cbar_min_max=(cbar_min, cbar_max))
+            #self.displayed_data = {'dim': 2, 'data': (img, (x_start, x_stop, y_start, y_stop))}
 
         self.block_update = False
 
@@ -179,19 +188,6 @@ class MainView(QMainWindow):
             if current_z in out_titles + computed_out_titles:
                 self.params.param('Out', 'z').setValue(current_z)
     
-    def on_file_opened(self, rfdata):
-        print(rfdata)
-        self.update_views(rfdata)
-
-    def update_views(self, rfdata):  
-        self.block_update = True
-        self.sweep_tree.new_rfdata(rfdata)
-        self.filter_tree.new_rfdata(rfdata)
-        self.setting_tree.new_rfdata(rfdata)
-        self.block_update = False
-
-        self.updatePlot(rfdata, data_changed=True, file_changed=True)
-
     
     # TRACE WINDOW
     def _findIndexOfClosestToTarget(self, target, array):

@@ -2,6 +2,37 @@ from PyQt5.QtWidgets import QWidget
 import os
 import pyqtgraph as pg
 
+from dataclasses import dataclass, asdict
+
+@dataclass
+class Kw1d:
+    title: str = ""
+    xlabel: str = ""
+    ylabel: str = ""
+    color: str = "tab:blue"
+    linestyle: str = "-"
+    linewidth: float = 2.0
+    marker: str = "o"
+    markersize: float = 5.0
+    grid: bool = True
+    xscale: str = "linear"
+    yscale: str = "linear"
+    
+    def to_dict(self):
+        return asdict(self)
+
+
+@dataclass
+class Kw2d:
+    title: str = ""
+    xlabel: str = ""
+    ylabel: str = ""
+    zlabel: str = ""
+    cmap: str = "viridis"
+
+    def to_dict(self):
+        return asdict(self)
+
 children=[
     {'name': 'Title', 'type': 'str', 'value': ''},
     {'name': 'XLabel', 'type': 'str', 'value': ''},
@@ -18,6 +49,8 @@ children=[
     {'name': 'XScale', 'type': 'list', 'values': ['linear', 'log'], 'default': 'linear', 'dim':1},
     {'name': 'YScale', 'type': 'list', 'values': ['linear', 'log'], 'default': 'linear', 'dim':1},
 ]
+
+
 class SettingTreeWidget(QWidget):
     
     def __init__(self):
@@ -33,8 +66,7 @@ class SettingTreeWidget(QWidget):
             pass
             #self.updatePlot()
         self.parameters.sigTreeStateChanged.connect(onParamChange)
-    
-            
+
         self.tree.header().setSectionResizeMode(0)
         self.tree.setColumnWidth(0, 130)
 
@@ -43,10 +75,11 @@ class SettingTreeWidget(QWidget):
         p = self.parameters
         data_dict = rfdata.data_dict
         out_titles = data_dict['out']['titles']
+        self.dim = dim = rfdata.data_dict['sweep_dim']
     
-        if rfdata.data_dict['sweep_dim'] == 1:
+        if dim == 1:
             x_title, y_title = out_titles[:2]
-        elif rfdata.data_dict['sweep_dim'] == 2:
+        elif dim == 2:
             x_title, y_title = rfdata.data_dict['x']['title'], rfdata.data_dict['y']['title']
             p.param('ZLabel').setValue(out_titles[0])
 
@@ -58,12 +91,19 @@ class SettingTreeWidget(QWidget):
         p.param('YLabel').setDefault(y_title)
         
 
+    def get_kw(self, dim=1):
+        data = {}
 
-    def to_dict(self, dim=2):
-        # return a dictionary with all the settings to be passed to the plot function
-        dic = {}
-        for child in self.mplkw.children():
-            if 'dim' in child.opts and child.opts['dim'] != dim:
+        for child in self.parameters.children():
+            name = child.name().lower()
+            value = child.value()
+
+            opt_dim = child.opts.get("dim", None)
+            if opt_dim is not None and opt_dim != dim:
                 continue
-            dic[child.name().lower()] = child.value()
-        return dic
+            data[name] = value
+
+        print(data)
+        cls = {1:Kw1d, 2:Kw2d}[dim]
+        kw = cls(**{k: v for k, v in data.items() if k in cls.__annotations__})
+        return kw

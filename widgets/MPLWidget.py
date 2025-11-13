@@ -61,6 +61,7 @@ class MPLWidget(QWidget):
         self.line = None # line plot
         self.im = None # image
         self.bar = None # colorbar
+        self.text = None # text
         
         # cursor
         self.cursor = Cursor(self.ax, useblit=True, color='black', linewidth=1)
@@ -90,7 +91,7 @@ class MPLWidget(QWidget):
         self.home_coords = (0, 1, 0, 1)
         self.home_cbar = (0, 1)
         # we redefine the home button behavior
-        home = self.toolbar.actions()[0]
+        self.home_btn = home = self.toolbar.actions()[0]
         home.disconnect()
         def onHomeTrig(boo):
             self.ax.set_xlim(self.home_coords[0], self.home_coords[1])
@@ -162,7 +163,7 @@ class MPLWidget(QWidget):
     # END OF HANDLING EVENTS
     
 
-    def removeAll(self):
+    def remove_graph_elements(self):
         if self.bar:
             self.bar.remove()
             self.bar = None
@@ -176,99 +177,99 @@ class MPLWidget(QWidget):
     def afterDisplay(self):
         #self.figure.tight_layout()
         # redraw trace crosses
-        for cross in self.trace_crosses: self.ax.add_artist(cross)
-        self.ax.add_artist(self.vmarkers.line1); self.ax.add_artist(self.vmarkers.line2)
-        self.ax.add_artist(self.hmarkers.line1); self.ax.add_artist(self.hmarkers.line2)
-        self.ax.add_artist(self.resizable_line.line)
-        self.canvas.draw()
-        #print('end of afterDisplay')
+        #for cross in self.trace_crosses: self.ax.add_artist(cross)
+        #self.ax.add_artist(self.vmarkers.line1); self.ax.add_artist(self.vmarkers.line2)
+        #self.ax.add_artist(self.hmarkers.line1); self.ax.add_artist(self.hmarkers.line2)
+        #self.ax.add_artist(self.resizable_line.line)
+        #self.canvas.draw()
+        print('end of afterDisplay')
 
-    def displayImage(self, image_data, extent, plot_kwargs={}, is_new_data=False, is_new_file=False, cbar_min_max=(0,1)):
-        self.removeAll()
-        if is_new_file:
-            self.clearCrosses()
-            self.ax.cla()
+    def display_image(self, image_data, extent, plot_kwargs={}):#, is_new_data=False, is_new_file=False, cbar_min_max=(0,1)):
+        #if is_new_file:
+        #    self.clearCrosses()
+        #    self.ax.cla()
 
+        self.remove_graph_elements()
         # titles
-        title = plot_kwargs.pop('title', '')
-        x_title = plot_kwargs.pop('xlabel', '')
-        y_title = plot_kwargs.pop('ylabel', '')
+        self.ax.set_title(plot_kwargs.pop('title', ''))
+        self.ax.set_xlabel(plot_kwargs.pop('xlabel', ''))
+        self.ax.set_ylabel(plot_kwargs.pop('ylabel', ''))
         zlabel = plot_kwargs.pop('zlabel', '')
-        self.ax.set_title(title)
-        self.ax.set_xlabel(x_title)
-        self.ax.set_ylabel(y_title)
 
         # plotting
-        self.im = self.ax.imshow(image_data, origin='lower', aspect='auto', interpolation='nearest',
-                                 extent=extent, **plot_kwargs)
+        self.im = self.ax.imshow(
+            image_data, 
+            origin='lower', 
+            aspect='auto', 
+            interpolation='nearest',
+            extent=extent, 
+            **plot_kwargs
+        )
         self.bar = self.figure.colorbar(self.im, ax=self.ax, label=zlabel)
 
         # colorbar limits
-        data_min, data_max = np.nanmin(image_data), np.nanmax(image_data)
-        self.im.set_clim(data_min+(data_max-data_min)*cbar_min_max[0], data_min+(data_max-data_min)*cbar_min_max[1])
+        #data_min, data_max = np.nanmin(image_data), np.nanmax(image_data)
+        #self.im.set_clim(data_min+(data_max-data_min)*cbar_min_max[0], #data_min+(data_max-data_min)*cbar_min_max[1])
         
+        # saving home_coords
         self.home_coords = self.ax.get_xlim() + self.ax.get_ylim()
         self.home_cbar = self.im.get_clim()
         
-        if is_new_data:
-            # set the line shorter than the image extent
-            x0, x1, y0, y1 = extent
-            x_padding = 0.1*(x1-x0)
-            y_padding = 0.1*(y1-y0)
-            self.resizable_line.setPosition(x0+x_padding, y0+y_padding, x1-x_padding, y1-y_padding)
-            self.vmarkers.setPosition(x0+x_padding, x1-x_padding)
-            self.hmarkers.setPosition(y0+y_padding, y1-y_padding)
+        #if is_new_data:
+        #    # set the line shorter than the image extent
+        #    x0, x1, y0, y1 = extent
+        #    x_padding = 0.1*(x1-x0)
+        #    y_padding = 0.1*(y1-y0)
+        #    self.resizable_line.setPosition(x0+x_padding, y0+y_padding, #x1-x_padding, y1-y_padding)
+        #    self.vmarkers.setPosition(x0+x_padding, x1-x_padding)
+        #    self.hmarkers.setPosition(y0+y_padding, y1-y_padding)
 
-        
-        self.afterDisplay()
+        self.canvas.draw()
+        self.home_btn.trigger()
 
-    def displayPlot(self, x_data, y_data, plot_kwargs={}, is_new_data=False, is_new_file=False):
-        if is_new_file:
-            self.clearCrosses()
-            self.ax.cla()
-
-        title = plot_kwargs.pop('title', '')
-        x_title = plot_kwargs.pop('xlabel', '')
-        y_title = plot_kwargs.pop('ylabel', '')
-        self.ax.set_title(title)
-        self.ax.set_xlabel(x_title)
-        self.ax.set_ylabel(y_title)
+    def display_plot(self, x_data, y_data, plot_kwargs={}):#, is_new_data=False, is_new_file=False):
+        #if is_new_file:
+        #    self.clearCrosses()
+        #    self.ax.cla()
+        self.remove_graph_elements()
+        self.ax.set_title(plot_kwargs.pop('title', ''))
+        self.ax.set_xlabel(plot_kwargs.pop('xlabel', ''))
+        self.ax.set_ylabel(plot_kwargs.pop('ylabel', ''))
 
         self.ax.grid(plot_kwargs.pop('grid', True))
-        yscale = plot_kwargs.pop('yscale', 'linear')
-        xscale = plot_kwargs.pop('xscale', 'linear')
-        self.ax.set_yscale(yscale if yscale != '' else 'linear')
-        self.ax.set_xscale(xscale if xscale != '' else 'linear')
+        self.ax.set_yscale(plot_kwargs.pop('yscale', 'linear'))
+        self.ax.set_xscale(plot_kwargs.pop('xscale', 'linear'))
 
-        self.removeAll()
-        color = plot_kwargs.pop("color", '')
-        plot_kwargs["color"] = color if color!='' else None
+        #color = plot_kwargs.pop("color", '')
+        #plot_kwargs["color"] = color if color!='' else None
         self.line = self.ax.plot(x_data, y_data, **plot_kwargs)[0]
         
-        # redefine home coord
+        # saving home_coord
         x_padding = 0.1*(np.nanmax(x_data)-np.nanmin(x_data))
         y_padding = 0.1*(np.nanmax(y_data)-np.nanmin(y_data))
         self.home_coords = (np.nanmin(x_data)-x_padding, np.nanmax(x_data)+x_padding, np.nanmin(y_data)-y_padding, np.nanmax(y_data)+y_padding)
         
-        if is_new_data:
-            x0, x1 = self.ax.get_xlim()
-            y0, y1 = self.ax.get_ylim()
-            x_padding = 0.1*(x1-x0)
-            y_padding = 0.1*(y1-y0)
-            self.resizable_line.setPosition(x0+x_padding, y0+y_padding, x1-x_padding, y1-y_padding)
-            self.vmarkers.setPosition(x0+x_padding, x1-x_padding)
-            self.hmarkers.setPosition(y0+y_padding, y1-y_padding)
+        #if is_new_data:
+        #    x0, x1 = self.ax.get_xlim()
+        #    y0, y1 = self.ax.get_ylim()
+        #    x_padding = 0.1*(x1-x0)
+        #    y_padding = 0.1*(y1-y0)
+        #    self.resizable_line.setPosition(x0+x_padding, y0+y_padding, x1-x_padding, y1-y_padding)
+        #    self.vmarkers.setPosition(x0+x_padding, x1-x_padding)
+        #    self.hmarkers.setPosition(y0+y_padding, y1-y_padding)
         
-        if not is_new_data and not is_new_file:
-            self.press_home()
+        #if not is_new_data and not is_new_file:
+        #    self.press_home()
 
-        self.afterDisplay()
+        self.canvas.draw()
+        self.home_btn.trigger()
+        
     
-    def press_home(self):
-        self.toolbar.actions()[0].trigger()
+    #def press_home(self):
+    #    self.toolbar.actions()[0].trigger()
 
     def write(self, text):
-        self.removeAll()
+        self.remove_graph_elements()
         self.ax.clear()
-        loading_label = self.ax.text(0.5, 0.5, text, ha="center", va="center", fontsize=12, color="gray")
+        self.text = self.ax.text(0.5, 0.5, text, ha="center", va="center", fontsize=12, color="gray")
         self.canvas.draw()
