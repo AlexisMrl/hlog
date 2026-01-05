@@ -36,8 +36,13 @@ class FileTreeView(QWidget):
         menu = QMenu()
         menu.addAction('Open in new tab', self.openInNewTab)
         menu.addAction('Copy path', self.copyPath)
-        file_action = [('Open in notepad', self.openInTE), ('Read file', self.readfile)]
-        dir_action = [('Open', self.openDir)]
+        file_action = [
+            ('Open in notepad', self.openInTE), 
+            ('Read file', self.sig_askOpenFile.emit)
+        ]
+        dir_action = [
+            ('Open', self.openDir)
+        ]
         for action in file_action if type=='file' else dir_action:
             menu.addAction(action[0], action[1])
         menu.addSeparator()
@@ -62,7 +67,7 @@ class FileTreeView(QWidget):
     def onKeyPress(self, event):
         key = event.key()
         modifiers = event.modifiers()
-        print('hi')
+
         # Enter or Space -> open file
         if key in (Qt.Key_Return, Qt.Key_Space):
             self.askOpenFile()
@@ -106,11 +111,11 @@ class FileTreeView(QWidget):
     
     def changePath(self, path):
         if not os.path.exists(path):
-            self.main_view.write.emit('Path does not exist: '+path)
+            self.main_view.write('Path does not exist: '+path)
             return
         self.model.setRootPath(path)
         self.view.setRootIndex(self.model.index(path))
-        print(path)
+        print('Path changed to:', path)
 
     def openInTE(self):
         # try to open in text editor

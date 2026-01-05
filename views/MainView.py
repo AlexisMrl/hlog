@@ -10,6 +10,8 @@ from views.SettingTreeView import SettingTreeView
 from views.SweepTreeView import SweepTreeView
 from views.FileTreeView import FileTreeView
 
+from src.ReadfileData import ReadfileData
+
 
 from scipy.ndimage import gaussian_filter1d, gaussian_filter
 import numpy as np
@@ -18,8 +20,9 @@ import numpy as np
 class MainView(QMainWindow):
     """
     Gère les différentes vues
-    Prend tree_view
     """
+
+    sig_newReadFileData = pyqtSignal(ReadfileData)
 
     def __init__(self, hlog="to_remove"):
         super().__init__()
@@ -78,29 +81,32 @@ class MainView(QMainWindow):
         print(text)
         self.statusBar().showMessage(text)
 
-    def new_graph(self, name="graph"):
-        graphic = MPLWidget(self)
-        self.graphic_tabs.addTab(graphic, name)
-        self.graphic_tabs.setCurrentWidget(graphic)
-        return graphic
-    
     def current_graph(self, force_new:bool):
         graph = self.graphic_tabs.currentWidget()
         if not graph:
-            return self.new_graph() if force_new else None
+            return self.newGraph() if force_new else None
         return graph
     
     def on_graph_close(self, index):
         self.graphic_tabs.removeTab(index)
 
-    def onFileOpened(self, rfdata, new_tab_asked:bool):
-        graph = self.new_graph(name=rfdata.filename) if new_tab_asked else self.current_graph(force_new=True)
+    def onFileOpened(self, rfdata):
+
+        ## Create a new tab with the graph
+        graph = MPLWidget(self)
+        self.graphic_tabs.addTab(graph, rfdata.filename)
+        self.graphic_tabs.setCurrentWidget(graph)
+        ##s
     
+        ## Send a new graph signal
         self.block_update = True
-        self.sweep_tree.new_rfdata(rfdata)
-        self.filter_tree.new_rfdata(rfdata)
-        self.setting_tree.new_rfdata(rfdata)
+        self.sig_newReadFileData.emit(rfdata)
+        #self.sweep_tree.new_rfdata(rfdata)
+        #self.filter_tree.new_rfdata(rfdata)
+        #self.setting_tree.new_rfdata(rfdata)
         self.block_update = False
+        print("hi")
+        return
         
         # connect to new plot
         update_plot = lambda *args: self.update_plot(rfdata, graph)

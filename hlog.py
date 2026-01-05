@@ -12,38 +12,31 @@ from src.Popup import Popup
 
 class hlog(QObject):
 
-    sig_fileOpened = pyqtSignal(ReadfileData, bool)
-    sig_changePath = pyqtSignal(str)
+    sig_fileOpened = pyqtSignal(ReadfileData)
 
     def __init__(self, path:str, app:QApplication=None, file=None):
         super().__init__()
         self.app = app
 
-        self.main_view = MainView(self)
+        self.main_view = mv = MainView(self)
         self.pop = Popup()
         
         self.loading_thread = None
         self.current_data = None
 
-        # SIGNALS ingoing
-        self.main_view.file_tree.sig_askOpenFile.connect(self.openFile)
+        # SIGNALS ingoing from views
+        mv.file_tree.sig_askOpenFile.connect(self.openFile)
 
         # SIGNALS outgoing
-        self.sig_fileOpened.connect(self.main_view.onFileOpened)
-        self.sig_changePath.connect(self.main_view.file_tree.changePath)
+        self.sig_fileOpened.connect(mv.onFileOpened)
 
         # First exec:
-        self.sig_changePath.emit(path)
+        self.main_view.file_tree.changePath(path)
         #self.write(':)')
-
         if file: self.open_file(file)
 
-    def changePath(self, path):
-        print('Path changed to:', path)
-        
     def openFile(self, path):
         self.main_view.write('Opening file: '+path)
-        #self.new_tab_asked = new_tab_asked
 
         if path[-3:]=='txt': 
             # ReadfileData in a thread
