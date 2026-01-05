@@ -1,6 +1,6 @@
 from PyQt5.QtWidgets import QMainWindow, QVBoxLayout, QSplitter, QWidget, QTabWidget
 from PyQt5.QtWidgets import QToolBar, QAction, QMenu
-from PyQt5.QtCore import Qt
+from PyQt5.QtCore import Qt, pyqtSignal
 import pyqtgraph as pg
 
 from widgets.MPLWidget import MPLWidget
@@ -8,6 +8,7 @@ from widgets.MPLTraceWidget import MPLTraceWidget
 from views.FilterTreeView import FilterTreeView
 from views.SettingTreeView import SettingTreeView
 from views.SweepTreeView import SweepTreeView
+from views.FileTreeView import FileTreeView
 
 
 from scipy.ndimage import gaussian_filter1d, gaussian_filter
@@ -15,10 +16,14 @@ import numpy as np
 
 
 class MainView(QMainWindow):
+    """
+    Gère les différentes vues
+    Prend tree_view
+    """
 
-    def __init__(self, controller, tree_view):
+    def __init__(self, hlog="to_remove"):
         super().__init__()
-        self.controller = controller
+        self.hlog = hlog
         self.setWindowTitle('hlog')
         self.resize(1000, 600)
         icon = pg.QtGui.QIcon('./resources/icon.png')
@@ -26,12 +31,13 @@ class MainView(QMainWindow):
         
         self.block_update = False
 
-        # extra windows
+        ## extra windows
         # TODO: remove `self` dependence
         self.trace_window = MPLTraceWidget(self)
         
-        # main layout
+        ## main layout
         # trees
+        self.file_tree = FileTreeView(self)
         self.sweep_tree = SweepTreeView()
         self.filter_tree= FilterTreeView()
         self.setting_tree = SettingTreeView()
@@ -42,11 +48,11 @@ class MainView(QMainWindow):
         self.graphic_tabs.tabCloseRequested.connect(self.on_graph_close)
         self.graphic_to_rfdata = {}
 
-        # left splitter (tree_view, param_tree)
+        # left splitter (file_tree, param_tree)
         self.h_splitter_left = QSplitter(2)
-        self.h_splitter_left.addWidget(tree_view)
+        self.h_splitter_left.addWidget(self.file_tree.view)
         self.h_splitter_left.addWidget(self.sweep_tree.tree)
-        self.h_splitter_left.setSizes([300, 50])
+        self.h_splitter_left.setSizes([250, 100])
 
         # right splitter (graphics, setting_tabs)
         self.setting_tabs = QTabWidget()
@@ -66,7 +72,11 @@ class MainView(QMainWindow):
         self.v_splitter.setSizes([300, 500])
     
     def closeEvent(self, event):
-        self.controller.close()
+        self.hlog.close()
+    
+    def write(self, text):
+        print(text)
+        self.statusBar().showMessage(text)
 
     def new_graph(self, name="graph"):
         graphic = MPLWidget(self)
@@ -83,7 +93,7 @@ class MainView(QMainWindow):
     def on_graph_close(self, index):
         self.graphic_tabs.removeTab(index)
 
-    def on_file_opened(self, rfdata, new_tab_asked:bool):
+    def onFileOpened(self, rfdata, new_tab_asked:bool):
         graph = self.new_graph(name=rfdata.filename) if new_tab_asked else self.current_graph(force_new=True)
     
         self.block_update = True
@@ -160,7 +170,7 @@ class MainView(QMainWindow):
     def _updateOutTitles(self):
         # update the out titles in the filter tree, keeping the current value selected
         # usefull to dynamically add new out titles (polar/cartesian)
-        rfdata = self.controller.current_data
+        rfdata = self.hlog.current_data
         out_titles = rfdata.data_dict['out']['titles']
         computed_out_titles = rfdata.data_dict['computed_out']['titles']
         if rfdata.data_dict['sweep_dim'] == 1:
