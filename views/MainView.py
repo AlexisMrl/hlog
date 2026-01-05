@@ -38,48 +38,50 @@ class MainView(QMainWindow):
         # TODO: remove `self` dependence
         self.trace_window = MPLTraceWidget(self)
         
-        ## main layout
-        # trees
+        ## MAIN LAYOUT
         self.file_tree = FileTreeView(self)
-        self.sweep_tree = SweepTreeView()
-        self.filter_tree= FilterTreeView()
-        self.setting_tree = SettingTreeView()
-
-        # graph tab:
         self.graphic_tabs = QTabWidget()
         self.graphic_tabs.setTabsClosable(True)
         self.graphic_tabs.tabCloseRequested.connect(self.on_graph_close)
-        self.graphic_to_rfdata = {}
 
-        # left splitter (file_tree, param_tree)
-        self.h_splitter_left = QSplitter(2)
-        self.h_splitter_left.addWidget(self.file_tree.view)
-        self.h_splitter_left.addWidget(self.sweep_tree.tree)
-        self.h_splitter_left.setSizes([250, 100])
-
-        # right splitter (graphics, setting_tabs)
-        self.setting_tabs = QTabWidget()
-        self.setting_tabs.addTab(self.filter_tree.tree, 'Analysis')
-        self.setting_tabs.addTab(self.setting_tree.tree, 'Graph settings')
-        self.h_splitter_right = QSplitter(2)
-        self.h_splitter_right.addWidget(self.graphic_tabs)
-        self.h_splitter_right.addWidget(self.setting_tabs)
-        self.h_splitter_right.setSizes([300, 50])
-
-
-        # Main splitter with (left, right)
+        # Splitter: (FILES, TABS)
         self.v_splitter = QSplitter()
-        self.v_splitter.addWidget(self.h_splitter_left)
-        self.v_splitter.addWidget(self.h_splitter_right)
+        self.v_splitter.addWidget(self.file_tree.view)
+        self.v_splitter.addWidget(self.graphic_tabs)
         self.setCentralWidget(self.v_splitter)
         self.v_splitter.setSizes([300, 500])
-    
-    def closeEvent(self, event):
-        self.hlog.close()
-    
+
+    def newTab(self, name:str):
+        """ Build tab layout """
+        graph = MPLWidget(self)
+        # --
+        sweep_tree = SweepTreeView()
+        filter_tree= FilterTreeView()
+        setting_tree = SettingTreeView()
+        # bottom (sweep, [analyse, graph settings])
+        setting_tabs = QTabWidget()
+        setting_tabs.addTab(filter_tree.tree, 'Analyse')
+        setting_tabs.addTab(setting_tree.tree, 'Graph')
+
+        bottom_splitter = QSplitter()
+        bottom_splitter.addWidget(sweep_tree.tree)
+        bottom_splitter.addWidget(setting_tabs)
+        bottom_splitter.setSizes([10, 100])
+
+        # main splitter
+        layout = QSplitter(2)
+        layout.addWidget(graph)
+        layout.addWidget(bottom_splitter)
+        layout.setSizes([250, 100])
+
+        self.graphic_tabs.addTab(layout, name)
+        self.graphic_tabs.setCurrentWidget(layout)
+
     def write(self, text):
         print(text)
         self.statusBar().showMessage(text)
+
+
 
     def current_graph(self, force_new:bool):
         graph = self.graphic_tabs.currentWidget()
@@ -92,12 +94,8 @@ class MainView(QMainWindow):
 
     def onFileOpened(self, rfdata):
 
-        ## Create a new tab with the graph
-        graph = MPLWidget(self)
-        self.graphic_tabs.addTab(graph, rfdata.filename)
-        self.graphic_tabs.setCurrentWidget(graph)
-        ##s
-    
+        self.newTab(name=rfdata.filename)
+
         ## Send a new graph signal
         self.block_update = True
         self.sig_newReadFileData.emit(rfdata)

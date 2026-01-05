@@ -131,7 +131,8 @@ class FileTreeView(QWidget):
         index = self.view.currentIndex()
         path = self.model.filePath(index)
         if not self.model.isDir(index):
-            self.parent.open_file(path, new_tab=True)
+            self.main_view.write("not implemented")
+            #self.parent.open_file(path, new_tab=True)
     
     def goUpDir(self):
         path = self.model.filePath(self.view.rootIndex())
