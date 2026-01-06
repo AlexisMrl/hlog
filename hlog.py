@@ -52,7 +52,7 @@ class hlog(QObject):
     def onFileOpened(self, rfdata, fn_args, fn_kwargs):
         # called on thread success
         filepath = fn_kwargs.get("filepath")
-        self.main_view.write('File opened: '+filepath)
+        self.main_view.write('File opened')
         self.sig_fileOpened.emit(rfdata)
     
     def onFileOpenError(self, exception, fn_args, fn_kwargs):

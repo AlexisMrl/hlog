@@ -17,19 +17,19 @@ children = [
         {'name': 'Order', 'type': 'int', 'value': 1, 'limits': (0, None)},
     ]},
     {'name': '2d sweep', 'type': 'group', 'children': [
-        {'name': 'min', 'type': 'slider', 'value': 0, 'limits':(0, 1), 'step': 0.001, 'default': 0},
-        {'name': 'max', 'type': 'slider', 'value': 1, 'limits':(0, 1), 'step': 0.001, 'default': 1},
+        #{'name': 'min', 'type': 'slider', 'value': 0, 'limits':(0, 1), 'step': 0.001, 'default': 0},
+        #{'name': 'max', 'type': 'slider', 'value': 1, 'limits':(0, 1), 'step': 0.001, 'default': 1},
+        {'name': 'cmap', 'type': 'list', 'values': ['viridis', 'RdBu_r', 'twilight', 'plasma', 'inferno', 'magma', 'cividis'], 'default': 'viridis'},
         {'name': 'z log', 'type': 'bool', 'value': False},
-        {'name': 'altern_cols', 'type': 'bool', 'value': False},
         #{'name': 'Deinterlace', 'type': 'bool', 'value': False},
         
     ]},
-    {'name': '1d sweep', 'type': 'group', 'children': [
-        {'name': 'x log', 'type': 'bool', 'value': False},
-        {'name': 'y log', 'type': 'bool', 'value': False},
-        #{'name': 'Deinterlace', 'type': 'bool', 'value': False},
+    #{'name': '1d sweep', 'type': 'group', 'children': [
+    #    {'name': 'x log', 'type': 'bool', 'value': False},
+    #    {'name': 'y log', 'type': 'bool', 'value': False},
+    #    #{'name': 'Deinterlace', 'type': 'bool', 'value': False},
         
-    ]},
+    #]},
     #{'name': 'Polar/Cartesian', 'type': 'group', 'children': [
     #    {'name': 'type', 'type': 'list', 'value': ['No conversion', 'Polar to Cart', 'Cart to Polar']},
     #    {'name': 'r', 'type': 'list', 'value': []},
@@ -44,11 +44,17 @@ class FilterTreeView:
         self.parameters = pg.parametertree.Parameter.create(name='filters', type='group', children=children)
         self.tree = pg.parametertree.ParameterTree(showHeader=False)
         self.tree.setParameters(self.parameters, showTop=False)
-        
+
+        self.need_update_ax = True
+        self.need_update_cb = True
+
         def onFilterChange(param, changes): # called when something changes in the filter tree
-            #self.updatePlot()
             print('filter change:', param, changes)
-            #pass
+            #print(f"{self.need_update_cb=}")
+            if changes[0][0] == self.parameters.param('Filter', 'Transpose'):
+                self.need_update_ax = True
+                self.need_update_cb = False
+                        
         self.parameters.sigTreeStateChanged.connect(onFilterChange)
 
         self.tree.header().setSectionResizeMode(0)
@@ -64,16 +70,14 @@ class FilterTreeView:
         p.param('Filter', 'Type').clearChildren()
         
         if rfdata.data_dict['sweep_dim'] == 1:
-            # TODO: remove 2dim parameters
             p.param('Filter', 'Type').setLimits(d1_filters)
             p.param('Filter', 'Type').setValue('No filter')
-            p.param('1d sweep').show()
+            #p.param('1d sweep').show()
             p.param('2d sweep').hide()
         elif rfdata.data_dict['sweep_dim'] == 2:
-            # TODO: remove 1dim parameters
             p.param('Filter', 'Type').setLimits(d2_filters)
             p.param('Filter', 'Type').setValue('No filter')
-            p.param('1d sweep').hide()
+            #p.param('1d sweep').hide()
             p.param('2d sweep').show()
 
         
@@ -91,20 +95,27 @@ class FilterTreeView:
         polar_cart.children()[2].setDefault(out_titles[1])
         """
 
-    ######
-
-    def apply_on(self, data):
+    def transposeChecked(self):
         p = self.parameters
-        fn = filter_fn(p.param('Filter', 'Type').value())
+        return p.param('Filter', 'Transpose').value()
+    
+    def getCmap(self):
+        return self.parameters.param('2d sweep', 'cmap').value()
+
+    def applyOnData(self, data, data_label:str):
+        p = self.parameters
+        filt = p.param('Filter', 'Type').value()
+        fn = filter_fn(filt)
         sigma = p.param('Filter', 'Sigma').value()
         order = p.param('Filter', 'Order').value()
         
         if p.param('2d sweep', 'z log').value():
-            #img = np.log10(np.absolute(img))
-            print("log not implemented")
+            if data.ndim == 2:
+                data = np.log10(np.absolute(data))
+                data_label = f"log {data_label}"
 
-
-        return fn(data, sigma, order)
+        new_label = f"{filt} {data_label}" if filt!= "No filter" else data_label
+        return fn(data, sigma, order), new_label
 
 
 

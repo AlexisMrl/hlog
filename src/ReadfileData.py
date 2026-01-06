@@ -30,8 +30,8 @@ class ReadfileData:
             if alternate:
                 # flip odd rows
                 data_cp[1::2] = data_cp[1::2, ::-1]
-            #if transpose:
-                #data_cp = data_cp.T
+            if transpose:
+                data_cp = data_cp.T
             # transpose by default
             return data_cp.T
     
@@ -44,7 +44,7 @@ class ReadfileData:
             max(x_start, x_stop)+abs(x_step)/2,
             min(y_start, y_stop)-abs(y_step)/2, 
             max(y_start, y_stop)+abs(y_step)/2)
-        #if transpose: extent = (extent[2], extent[3], extent[0], extent[1])
+        if transpose: extent = (extent[2], extent[3], extent[0], extent[1])
         if any([np.isnan(e) for e in extent]):
                 extent = None
         return extent

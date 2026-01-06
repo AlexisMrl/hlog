@@ -18,6 +18,7 @@ class ResizableLine():
         
         self.line.set_visible(visible)
         self.visible = visible
+
     
     def setPosition(self, x0, y0, x1, y1):
         self.line.set_xdata([x0, x1])
@@ -76,8 +77,8 @@ class ResizableLine():
         # <color>Line: \n slope: <slope> \n deltaX: <deltaX> \n deltaY: <deltaY>
         dx = x1 - x0
         dy = y1 - y0
-        slope = dy / dx
-        return f'Line:\n slope: {slope:.10f} \n deltaX: {dx:.10f} \n deltaY: {dy:.10f}'
+        slope = np.inf if dx == 0 else dy / dx
+        return f'Line:\n slope: {slope:.5f} \n deltaX: {dx:.5f} \n deltaY: {dy:.5f}'
 
 
 
@@ -157,4 +158,4 @@ class Markers():
     def makeText(self, coord_l1, coord_l2):
         delta = abs(coord_l1 - coord_l2)
         label = { 'v': 'VMarks\ndeltaX:', 'h': 'HMarks\ndeltaY:' }
-        return f'{label[self.orientation]} {delta:.10f}'
+        return f'{label[self.orientation]} {delta:.5f}'

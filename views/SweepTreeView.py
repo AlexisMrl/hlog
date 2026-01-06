@@ -6,7 +6,7 @@ children = [
     {'name': 'Sweep', 'type': 'group', 'children': [
         {'name': 'dev1', 'type': 'group', 'children': []},
         {'name': 'dev2', 'type': 'group', 'children': []},
-        {'name': 'is_alternate', 'type': 'bool', 'value': False, 'readonly':True},
+        {'name': 'is_alternate', 'type': 'bool', 'value': False},
         #{'name': 'Transpose', 'type': 'bool', 'value': False},
         {'name': 'wait_before (s)', 'type': 'str', 'value': '[0.02, 0.02]', 'readonly': True},
         ]},
@@ -25,6 +25,7 @@ children = [
 class SweepTreeView:
     """
     Static view of an rfdata item.
+    x/y can be selected.
     """
     def __init__(self):
         super().__init__()
@@ -78,7 +79,7 @@ class SweepTreeView:
                 {'name': 'range', 'type': 'str', 'value': range_to_string(y_range), 'readonly': True}]}
             p.param('Sweep').addChildren([x_sweep, y_sweep])
 
-            is_alternate = {'name': 'is_alternate', 'type': 'bool', 'value': data_dict['alternate'], 'readonly':True}
+            is_alternate = {'name': 'is_alternate', 'type': 'bool', 'value': data_dict['alternate']}
             p.param('Sweep').addChildren([is_alternate])
 
 
@@ -92,12 +93,12 @@ class SweepTreeView:
         #transpose = {'name': 'Transpose', 'type': 'bool', 'value': False}
         #p.param('Sweep').addChildren([transpose])
         
-    def get_xy_titles(self):
+    def get_xy_titles(self, transpose=False):
         p = self.parameters
         x_title = p.param('Out', 'x').value()
         y_title = p.param('Out', 'y').value()
-        #if self.transpose_checked():
-            #x_title, y_title = y_title, x_title
+        if transpose:
+            x_title, y_title = y_title, x_title
         return x_title, y_title
     
     def get_z_title(self):
@@ -105,10 +106,6 @@ class SweepTreeView:
 
     def alternate_checked(self):
         return self.parameters.param('Sweep', 'is_alternate').value()
-    
-    def transpose_checked(self):
-        return False
-        #return self.parameters.param('Sweep', 'Transpose').value()
 
 def range_to_string(ranges):
     return '[{:.3g}, {:.3g}], npts: {}, step: {:.3g}'.format(*ranges)

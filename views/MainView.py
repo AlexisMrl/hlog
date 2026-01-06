@@ -3,7 +3,7 @@ from PyQt5.QtWidgets import QToolBar, QAction, QMenu
 from PyQt5.QtCore import Qt, pyqtSignal
 import pyqtgraph as pg
 
-from widgets.MPLWidget import MPLWidget
+from views.MPLView import MPLView
 from widgets.MPLTraceWidget import MPLTraceWidget
 from views.FilterTreeView import FilterTreeView
 from views.SettingTreeView import SettingTreeView
@@ -51,11 +51,11 @@ class MainView(QMainWindow):
 
     def newTab(self, name:str):
         """ Build tab layout
-        return: sweep_tree, filter_tree, setting_tree
+        return: sweep_tree, filter_tree, setting_tree, graph
         
         """
         # LAYOUT
-        graph = MPLWidget(self)
+        graph = MPLView(self)
         # --
         sweep_tree = SweepTreeView()
         filter_tree= FilterTreeView()
@@ -79,49 +79,100 @@ class MainView(QMainWindow):
         self.graphic_tabs.addTab(layout, name)
         self.graphic_tabs.setCurrentWidget(layout)
 
-        return sweep_tree, filter_tree, setting_tree
+        return sweep_tree, filter_tree, setting_tree, graph
 
     def closeTab(self, index):
-        print("DEBUG: closing tab "+str(index))
         self.graphic_tabs.removeTab(index)
 
     def write(self, text):
         print(text)
         self.statusBar().showMessage(text)
 
-
-    #####
-
-    def current_graph(self, force_new:bool):
-        graph = self.graphic_tabs.currentWidget()
-        if not graph:
-            return self.newGraph() if force_new else None
-        return graph
-
-
     def onFileOpened(self, rfdata):
 
-        sweep_tree, filter_tree, setting_tree = self.newTab(name=rfdata.filename)
+        sweep_tree, filter_tree, setting_tree, graph = self.newTab(name=rfdata.filename)
 
-        ## Send a new graph signal
+        # Tell the views about the new rfdata:
         self.block_update = True
-        #self.sig_newReadFileData.emit(rfdata)
+        
         sweep_tree.onNewReadFileData(rfdata)
         filter_tree.onNewReadFileData(rfdata)
-        #self.filter_tree.new_rfdata(rfdata)
-        #self.setting_tree.new_rfdata(rfdata)
-        self.block_update = False
-        print("hiii")
-        return
+        #setting_tree.onNewReadFileData(rfdata)
         
-        # connect to new plot
-        update_plot = lambda *args: self.update_plot(rfdata, graph)
-        self.filter_tree.parameters.sigTreeStateChanged.connect(update_plot)
-        self.setting_tree.parameters.sigTreeStateChanged.connect(update_plot)
-        self.sweep_tree.parameters.sigTreeStateChanged.connect(update_plot)
+        # Connect signals
+        update_this_graph = lambda **kwargs: self.updateGraph(rfdata, filter_tree, sweep_tree, graph, **kwargs)
+        filter_tree.parameters.sigTreeStateChanged.connect(update_this_graph)
+        sweep_tree.parameters.sigTreeStateChanged.connect(update_this_graph)
+        
+        
+        self.block_update = False
+        
+        update_this_graph(is_first_time = True)
 
-        update_plot()#, data_changed=True, file_changed=True)
+    def updateGraph(self, 
+        rfdata:ReadfileData, 
+        filter_tree:FilterTreeView, 
+        sweep_tree:SweepTreeView, 
+        graph:MPLView,
+        is_first_time = False,
+    ):
+        if self.block_update: return
 
+        transpose_checked = filter_tree.transposeChecked()
+        x_title, y_title = sweep_tree.get_xy_titles(transpose=transpose_checked)
+
+        # 1D
+        if rfdata.data_dict['sweep_dim'] == 1:
+            # FILTER
+            x_data = rfdata.get_data(x_title)
+            y_data = rfdata.get_data(y_title)
+            y_data, y_label = filter_tree.applyOnData(y_data, y_title)
+
+            # KEYWORDS
+            plot_kwargs = dict(
+                xlabel=x_title,
+                ylabel=y_label,
+            )
+            #keywords_for_plot = self.setting_tree.get_kw(dim=1).to_dict()
+            self.ax = graph.plot1D(
+                x_data,
+                y_data,
+                grid=True,
+                is_first_time=is_first_time,
+                #keep_lims=not need_update_lims,
+                plot_kwargs=plot_kwargs
+            )
+
+        # 2D
+        elif rfdata.data_dict['sweep_dim'] == 2:
+            out_title = sweep_tree.get_z_title()
+            alternate = sweep_tree.alternate_checked()
+            
+            img = rfdata.get_data(out_title, alternate=alternate,
+            transpose=transpose_checked)
+            img, out_label = filter_tree.applyOnData(img, out_title)
+
+            plot_kwargs = dict(
+                xlabel=x_title,
+                ylabel=y_title,
+                zlabel=out_label,
+                cmap=filter_tree.getCmap(),
+            )
+
+            graph.plot2D(
+                img, 
+                extent=rfdata.get_extent(transpose=transpose_checked),
+                grid=True,
+                is_first_time=is_first_time,
+                keep_ax_lims= not filter_tree.need_update_ax,
+                keep_cb_lims= not filter_tree.need_update_cb,
+                plot_kwargs=plot_kwargs
+            )
+
+        filter_tree.need_update_ax = True
+        filter_tree.need_update_cb = True
+                        
+    ####
 
     def update_plot(self, rfdata, graphic):#, data_changed=False, file_changed=False, new_tab=False):
         # called on file open or when a parameter is changed
@@ -178,6 +229,12 @@ class MainView(QMainWindow):
             graphic.display_image(img, extent, plot_kwargs=keywords_for_plot)#, is_new_data=data_changed, is_new_file=file_changed, cbar_min_max=(cbar_min, cbar_max))
 
         self.block_update = False
+
+    def current_graph(self, force_new:bool):
+        graph = self.graphic_tabs.currentWidget()
+        if not graph:
+            return self.newGraph() if force_new else None
+        return graph
 
     def _updateOutTitles(self):
         # update the out titles in the filter tree, keeping the current value selected
