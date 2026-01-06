@@ -22,8 +22,6 @@ class MainView(QMainWindow):
     Gère les différentes vues
     """
 
-    sig_newReadFileData = pyqtSignal(ReadfileData)
-
     def __init__(self, hlog="to_remove"):
         super().__init__()
         self.hlog = hlog
@@ -42,7 +40,7 @@ class MainView(QMainWindow):
         self.file_tree = FileTreeView(self)
         self.graphic_tabs = QTabWidget()
         self.graphic_tabs.setTabsClosable(True)
-        self.graphic_tabs.tabCloseRequested.connect(self.on_graph_close)
+        self.graphic_tabs.tabCloseRequested.connect(self.closeTab)
 
         # Splitter: (FILES, TABS)
         self.v_splitter = QSplitter()
@@ -52,7 +50,11 @@ class MainView(QMainWindow):
         self.v_splitter.setSizes([300, 500])
 
     def newTab(self, name:str):
-        """ Build tab layout """
+        """ Build tab layout
+        return: sweep_tree, filter_tree, setting_tree
+        
+        """
+        # LAYOUT
         graph = MPLWidget(self)
         # --
         sweep_tree = SweepTreeView()
@@ -61,12 +63,12 @@ class MainView(QMainWindow):
         # bottom (sweep, [analyse, graph settings])
         setting_tabs = QTabWidget()
         setting_tabs.addTab(filter_tree.tree, 'Analyse')
-        setting_tabs.addTab(setting_tree.tree, 'Graph')
+        #setting_tabs.addTab(setting_tree.tree, 'Graph')
 
         bottom_splitter = QSplitter()
         bottom_splitter.addWidget(sweep_tree.tree)
         bottom_splitter.addWidget(setting_tabs)
-        bottom_splitter.setSizes([10, 100])
+        bottom_splitter.setSizes([200, 1])
 
         # main splitter
         layout = QSplitter(2)
@@ -77,33 +79,39 @@ class MainView(QMainWindow):
         self.graphic_tabs.addTab(layout, name)
         self.graphic_tabs.setCurrentWidget(layout)
 
+        return sweep_tree, filter_tree, setting_tree
+
+    def closeTab(self, index):
+        print("DEBUG: closing tab "+str(index))
+        self.graphic_tabs.removeTab(index)
+
     def write(self, text):
         print(text)
         self.statusBar().showMessage(text)
 
 
+    #####
 
     def current_graph(self, force_new:bool):
         graph = self.graphic_tabs.currentWidget()
         if not graph:
             return self.newGraph() if force_new else None
         return graph
-    
-    def on_graph_close(self, index):
-        self.graphic_tabs.removeTab(index)
+
 
     def onFileOpened(self, rfdata):
 
-        self.newTab(name=rfdata.filename)
+        sweep_tree, filter_tree, setting_tree = self.newTab(name=rfdata.filename)
 
         ## Send a new graph signal
         self.block_update = True
-        self.sig_newReadFileData.emit(rfdata)
-        #self.sweep_tree.new_rfdata(rfdata)
+        #self.sig_newReadFileData.emit(rfdata)
+        sweep_tree.onNewReadFileData(rfdata)
+        filter_tree.onNewReadFileData(rfdata)
         #self.filter_tree.new_rfdata(rfdata)
         #self.setting_tree.new_rfdata(rfdata)
         self.block_update = False
-        print("hi")
+        print("hiii")
         return
         
         # connect to new plot

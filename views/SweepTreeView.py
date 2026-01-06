@@ -6,8 +6,8 @@ children = [
     {'name': 'Sweep', 'type': 'group', 'children': [
         {'name': 'dev1', 'type': 'group', 'children': []},
         {'name': 'dev2', 'type': 'group', 'children': []},
-        {'name': 'alternate', 'type': 'bool', 'value': False},
-        {'name': 'Transpose', 'type': 'bool', 'value': False},
+        {'name': 'is_alternate', 'type': 'bool', 'value': False, 'readonly':True},
+        #{'name': 'Transpose', 'type': 'bool', 'value': False},
         {'name': 'wait_before (s)', 'type': 'str', 'value': '[0.02, 0.02]', 'readonly': True},
         ]},
     {'name': 'Out', 'type': 'group', 'children': [
@@ -19,16 +19,18 @@ children = [
         {'name': 'config', 'type': 'text', 'value': '', 'readonly': True},
         {'name': 'comments', 'type': 'text', 'value': '', 'readonly': True},
         ], 'expanded': False},
-] # these are just placeholders, they are filled/rewritten in onFileOpened
+] # these are just placeholders, they are filled/rewritten in onNewReadFileData
 
 
 class SweepTreeView:
-    
+    """
+    Static view of an rfdata item.
+    """
     def __init__(self):
         super().__init__()
     
         self.parameters = pg.parametertree.Parameter.create(name='params', type='group', children=children)
-        self.tree = pg.parametertree.ParameterTree(showHeader=True)
+        self.tree = pg.parametertree.ParameterTree(showHeader=False)
         self.tree.setParameters(self.parameters, showTop=False)
 
         def onParamChange(param, changes):
@@ -40,7 +42,7 @@ class SweepTreeView:
         self.tree.header().setSectionResizeMode(0)
         self.tree.setColumnWidth(0, 130)
     
-    def new_rfdata(self, rfdata):
+    def onNewReadFileData(self, rfdata):
         p = self.parameters
         p.param('Out').clearChildren()
         p.param('Sweep').clearChildren()
@@ -76,8 +78,8 @@ class SweepTreeView:
                 {'name': 'range', 'type': 'str', 'value': range_to_string(y_range), 'readonly': True}]}
             p.param('Sweep').addChildren([x_sweep, y_sweep])
 
-            alternate = {'name': 'alternate', 'type': 'bool', 'value': data_dict['alternate']}
-            p.param('Sweep').addChildren([alternate])
+            is_alternate = {'name': 'is_alternate', 'type': 'bool', 'value': data_dict['alternate'], 'readonly':True}
+            p.param('Sweep').addChildren([is_alternate])
 
 
 
@@ -85,7 +87,7 @@ class SweepTreeView:
         p.param('Header', 'config').setValue(str(data_dict['config']))
         p.param('Header', 'comments').setValue(str(data_dict['comments']))
         #wait_before = {'name': 'wait_before', 'type': 'str', 'value': str(rfdata.data_dict['beforewait']), 'readonly': True},
-        #self.params.param('Sweep').addChildren([alternate, wait_before])
+        #self.params.param('Sweep').addChildren([is_alternate, wait_before])
         
         #transpose = {'name': 'Transpose', 'type': 'bool', 'value': False}
         #p.param('Sweep').addChildren([transpose])
@@ -94,15 +96,15 @@ class SweepTreeView:
         p = self.parameters
         x_title = p.param('Out', 'x').value()
         y_title = p.param('Out', 'y').value()
-        if self.transpose_checked():
-            x_title, y_title = y_title, x_title
+        #if self.transpose_checked():
+            #x_title, y_title = y_title, x_title
         return x_title, y_title
     
     def get_z_title(self):
         return self.parameters.param('Out', 'z').value()
 
     def alternate_checked(self):
-        return self.parameters.param('Sweep', 'alternate').value()
+        return self.parameters.param('Sweep', 'is_alternate').value()
     
     def transpose_checked(self):
         return False

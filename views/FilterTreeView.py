@@ -10,20 +10,31 @@ d1_filters = ['No filter', 'dy/dx']  # filters possible for 1d data
 d2_filters = ['No filter', 'dz/dx', 'dz/dy', 'Gaussian filter'] # filters possible for 2d data
 children = [
     {'name': 'Filter', 'type': 'group', 'children': [
+        {'name': 'Transpose', 'type': 'bool', 'value': False},
+
         {'name': 'Type', 'type': 'list', 'values': d2_filters, 'default': 'No filter'},
         {'name': 'Sigma', 'type': 'float', 'value': 1, 'limits': (1, None)},
         {'name': 'Order', 'type': 'int', 'value': 1, 'limits': (0, None)},
     ]},
-    {'name': 'Colorbar', 'type': 'group', 'children': [
+    {'name': '2d sweep', 'type': 'group', 'children': [
         {'name': 'min', 'type': 'slider', 'value': 0, 'limits':(0, 1), 'step': 0.001, 'default': 0},
         {'name': 'max', 'type': 'slider', 'value': 1, 'limits':(0, 1), 'step': 0.001, 'default': 1},
-        {'name': 'log', 'type': 'bool', 'value': False}
+        {'name': 'z log', 'type': 'bool', 'value': False},
+        {'name': 'altern_cols', 'type': 'bool', 'value': False},
+        #{'name': 'Deinterlace', 'type': 'bool', 'value': False},
+        
     ]},
-    {'name': 'Polar/Cartesian', 'type': 'group', 'children': [
-        {'name': 'type', 'type': 'list', 'value': ['No conversion', 'Polar to Cart', 'Cart to Polar']},
-        {'name': 'r', 'type': 'list', 'value': []},
-        {'name': 'theta', 'type': 'list', 'value': []}
+    {'name': '1d sweep', 'type': 'group', 'children': [
+        {'name': 'x log', 'type': 'bool', 'value': False},
+        {'name': 'y log', 'type': 'bool', 'value': False},
+        #{'name': 'Deinterlace', 'type': 'bool', 'value': False},
+        
     ]},
+    #{'name': 'Polar/Cartesian', 'type': 'group', 'children': [
+    #    {'name': 'type', 'type': 'list', 'value': ['No conversion', 'Polar to Cart', 'Cart to Polar']},
+    #    {'name': 'r', 'type': 'list', 'value': []},
+    #    {'name': 'theta', 'type': 'list', 'value': []}
+    #]},
 ]
 class FilterTreeView:
     
@@ -44,7 +55,7 @@ class FilterTreeView:
         self.tree.setColumnWidth(0, 130)
 
 
-    def new_rfdata(self, rfdata):
+    def onNewReadFileData(self, rfdata):
 
         p = self.parameters
         data_dict = rfdata.data_dict
@@ -56,13 +67,18 @@ class FilterTreeView:
             # TODO: remove 2dim parameters
             p.param('Filter', 'Type').setLimits(d1_filters)
             p.param('Filter', 'Type').setValue('No filter')
+            p.param('1d sweep').show()
+            p.param('2d sweep').hide()
         elif rfdata.data_dict['sweep_dim'] == 2:
             # TODO: remove 1dim parameters
             p.param('Filter', 'Type').setLimits(d2_filters)
             p.param('Filter', 'Type').setValue('No filter')
+            p.param('1d sweep').hide()
+            p.param('2d sweep').show()
 
         
         # Polar/Cartesian
+        """
         polar_cart = p.param('Polar/Cartesian')
         item_list = ['No conversion', 'Polar to Cart', 'Cart to Polar']
         p.param('Polar/Cartesian', 'type').setLimits(item_list) 
@@ -73,7 +89,9 @@ class FilterTreeView:
         polar_cart.children()[2].setLimits(out_titles)
         polar_cart.children()[2].setValue(out_titles[1])
         polar_cart.children()[2].setDefault(out_titles[1])
+        """
 
+    ######
 
     def apply_on(self, data):
         p = self.parameters
@@ -81,7 +99,7 @@ class FilterTreeView:
         sigma = p.param('Filter', 'Sigma').value()
         order = p.param('Filter', 'Order').value()
         
-        if p.param('Colorbar', 'log').value():
+        if p.param('2d sweep', 'z log').value():
             #img = np.log10(np.absolute(img))
             print("log not implemented")
 

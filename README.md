@@ -7,8 +7,7 @@ Application pyqt pour visualiser les données pyHegel et hdf5.
   - créer l'application pyqt.
   - ordonnance les tâches:
     - thread de chargement des données
-    - envoie des données chargées aux `vues` (`views`)
-  - garde en mémoire les `vues`
+    - envoie des données chargées à `MainView`
 
 `src/`:
   - contient la définition des objets utile du projet
@@ -16,9 +15,17 @@ Application pyqt pour visualiser les données pyHegel et hdf5.
     - gère l'abstraction des données chargées
 
 `views/`:
-  - Objets traitant les données charger (objets `rfdata`)
-  - `MainView.py`: la fenêtre principale de l'application. Elle reçoit le signal sortant de `hlog.py`: `sig_fileOpened`.
+  - `MainView`:
+    - garde en mémoire les `vues`
+    - gère les fenêtres/`widgets` de l'application
 
 `widgets/`:
-  - Fichiers définissant des objets à utiliser dans les vues.
-  - Ces fichiers ne connaissent pas le but de l'application. Ils doivent rester le plus général possible.
+  - Fichiers définissant des objets à utiliser dans les vues
+
+
+
+# À faire:
+- afficher durée du sweep
+- drop zone folder in filetree
+- mise à jour automatique:
+  - recentrage du graph ?
