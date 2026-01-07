@@ -74,9 +74,6 @@ class ReadfileData:
         if any([np.isnan(e) for e in extent]):
                 extent = None
         return extent
-        
-
-
 
 
     # -- POLAR/CARTESIAN CONVERSION --
@@ -119,7 +116,6 @@ class ReadfileData:
         metadata = os.stat(filepath)
 
         ext = filepath.split('.')[1]
-        print(ext)
         if ext == "txt": # it's a pyHegel file
             data_dict = ph_load(filepath)
         elif ext == "hdf5":

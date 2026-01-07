@@ -1,6 +1,6 @@
 import sys, os
 import numpy as np
-from PyQt5.QtWidgets import QWidget, QVBoxLayout, QAction
+from PyQt5.QtWidgets import QWidget, QVBoxLayout, QAction, QToolBar
 from PyQt5.QtCore import Qt
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
@@ -9,16 +9,14 @@ from matplotlib import colors
 
 from matplotlib.widgets import Cursor
 from widgets.MPLElements import ResizableLine, Markers
+from widgets.MPLToolbar import MPLToolbar
 
 class MPLView(QWidget):
 
     def __init__(self, parent=None):
         super().__init__()
         self.parent = parent
-        self.setAcceptDrops(True)
 
-
-        # Create a Matplotlib FigureCanvas and set up the layout
         self.figure = Figure()
         self.ax = self.figure.add_subplot(111)
         self.ax.autoscale(enable=True)
@@ -30,19 +28,12 @@ class MPLView(QWidget):
         layout.addWidget(self.canvas)
         self.setLayout(layout)
         
-        self.actionTrace = QAction('Traces', self)
-        self.actionTrace.setCheckable(True)
-        self.actionPan = self.toolbar.actions()[4]
-        self.actionZoom = self.toolbar.actions()[5]
-        self.toolbar.insertAction(self.toolbar.actions()[6], self.actionTrace)
-        self.actionZoom.toggled.connect(lambda boo: self.actionModeChanged(boo, 'ZOOM'))
-        self.actionPan.toggled.connect(lambda boo: self.actionModeChanged(boo, 'PAN'))
-        self.actionTrace.toggled.connect(lambda boo: self.actionModeChanged(boo, 'TRACE'))
-        self._changing_mode = False # use to block signal
-        
-        self.toolbar.addSeparator()
-        self.trace_action = self.toolbar.addAction('Trace window', self.traceActionClicked)
-        self.trace_crosses = []
+        # resizable line and markers
+        self.resizable_line = ResizableLine(self, visible=False)
+        self.vmarkers = Markers(self, 'v', visible=False)
+        self.hmarkers = Markers(self, 'h', visible=False)
+        # init toolbars:
+        MPLToolbar(self)
 
         self.line = None # line plot
         self.im = None # image
@@ -51,37 +42,47 @@ class MPLView(QWidget):
         self.last_extent = (0,0,0,0)
         self.last_im_min_max = (0,0,0,0)
         self.last_im_clim = (0,0)
-        # cursor
+
+        # cursor / crosshair
         self.cursor = Cursor(self.ax, useblit=True, color='black', linewidth=1)
-        def setCursor(boo):
-            self.cursor.visible = boo
-        self.setCursor = setCursor
+        self.setCursor = lambda boo: setattr(self.cursor, 'visible', boo)
         self.setCursor(False)
-        
-        # resizable line
-        self.toolbar.addSeparator()
-        self.resizable_line = ResizableLine(self, visible=False)
-        self.line1_action = self.toolbar.addAction(
-            self.resizable_line.makeText(0,0,0,0), self.resizable_line.toggleActive)
-        self.line1_action.setCheckable(True)
-        self.resizable_line.action_button = self.line1_action
-        
-        # markers
-        self.vmarkers = Markers(self, 'v', visible=False)
-        self.hmarkers = Markers(self, 'h', visible=False)
-        self.vmarkers_action = self.toolbar.addAction(
-            self.vmarkers.makeText(0,0), self.vmarkers.toggleActive)
-        self.hmarkers_action = self.toolbar.addAction(
-            self.hmarkers.makeText(0,0), self.hmarkers.toggleActive)
-        self.vmarkers_action.setCheckable(True)
-        self.hmarkers_action.setCheckable(True)
-        self.vmarkers.action_button = self.vmarkers_action
-        self.hmarkers.action_button = self.hmarkers_action
 
         self.canvas.mpl_connect('pick_event', self.onPick)
         self.canvas.mpl_connect('button_press_event', self.onMouseClick)
-    
-    def plot1D(self,
+
+        self.last_plot_dict = {}
+
+    def init1D(self):
+        """ make a line for setData later """
+        self.line = self.ax.plot(0, 0)[0]
+
+    def plot1D(self, plot_dict):
+        d = plot_dict
+
+        self.plot_fns = {
+            "x_title": self.ax.set_xlabel,
+            "y_title": self.ax.set_ylabel,
+            "x_or_y_data": self.line.set_data,
+            "grid": lambda visible: self.ax.grid(visible=visible)
+        }
+        print(plot_dict)
+
+        # set_data if x or y data has changed
+        if (not np.array_equal(x_data, self.last_plot_dict.pop("x_data", None))) or \
+            (not np.array_equal(y_data, self.last_plot_dict.pop("y_data", None))):
+            self.plot_fns["x_or_y_data"](x_data, y_data)
+            self.ax.relim()
+            self.ax.autoscale_view()
+            self.canvas.draw_idle()
+
+        for key, val in plot_dict.items():
+            # if val is different from before, exec the function
+            if val != self.last_plot_dict.get(key, None):
+                fn = self.plot_fns[key]
+                fn(val)
+
+    def plot1D_old(self,
             x_data,
             y_data,
             grid=False,
@@ -174,20 +175,6 @@ class MPLView(QWidget):
 
 
     # HANDLING EVENTS
- 
-    def actionModeChanged(self, boo, clicked=''):
-        if self._changing_mode: return
-        if clicked == 'ZOOM' or clicked == 'PAN':
-            self._changing_mode = True
-            self.actionTrace.setChecked(False)
-            self.setCursor(False)
-            self._changing_mode = False
-        elif clicked == 'TRACE':
-            self._changing_mode = True
-            if self.actionPan.isChecked(): self.toolbar.pan()
-            if self.actionZoom.isChecked(): self.toolbar.zoom()
-            self.setCursor(boo)
-            self._changing_mode = False
 
     def onMouseClick(self, event):
         if event.inaxes != self.ax: return

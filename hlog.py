@@ -53,7 +53,6 @@ class hlog(QObject):
         filepath = fn_kwargs.get("filepath")
         self.main_view.write('Successfully opened: '+filepath)
         self.rfdata = rfdata # DEBUG
-        print(self.main_view.file_tree.new_tab_asked)
         self.sig_fileOpened.emit(rfdata, self.main_view.file_tree.new_tab_asked)
         self.main_view.file_tree.new_tab_asked = False
     

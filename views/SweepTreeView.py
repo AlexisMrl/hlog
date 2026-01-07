@@ -35,6 +35,9 @@ class SweepTreeView:
         self.tree = pg.parametertree.ParameterTree(showHeader=False)
         self.tree.setParameters(self.parameters, showTop=False)
 
+
+        self.need_set_data = True
+        
         def onParamChange(param, changes):
             #print('a param has changed')
             pass
@@ -46,6 +49,7 @@ class SweepTreeView:
         
         self.tree.header().setSectionResizeMode(0)
         self.tree.setColumnWidth(0, 130)
+
     
     def onNewReadFileData(self, rfdata):
         p = self.parameters

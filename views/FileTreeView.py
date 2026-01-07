@@ -29,7 +29,7 @@ class FileTreeView(QWidget):
         # key press
         self.view.keyPressEvent = self.onKeyPress
 
-        self.view.doubleClicked.connect(self.askOpenFile)
+        self.view.doubleClicked.connect(self.onDoubleClick)
         # on item changed
         self.view.selectionModel().currentChanged.connect(self.onItemChanged)
 
@@ -123,6 +123,13 @@ class FileTreeView(QWidget):
         if type == "file":
             path = self.model.filePath(current)
             pass
+    
+    def onDoubleClick(self):
+        if QApplication.keyboardModifiers() & Qt.ShiftModifier:
+            self.openInNewTab()
+        else:
+            self.askOpenFile()
+
 
     ### ACTIONS ###
 

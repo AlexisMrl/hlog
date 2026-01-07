@@ -32,6 +32,7 @@ class MainView(QMainWindow):
         self.setWindowIcon(icon)
         
         self.block_update = False
+        self.current_plot_dict_rfdata = None
 
         ## extra windows
         # TODO: remove `self` dependence
@@ -124,52 +125,45 @@ class MainView(QMainWindow):
         #setting_tree.onNewReadFileData(rfdata)
         
         # Connect signals
-        update_this_graph = lambda **kwargs: self.updateGraph(rfdata, filter_tree, sweep_tree, graph, **kwargs)
+        update_this_graph = lambda **kwargs: self.prepare_and_send_plot_dict(rfdata, filter_tree, sweep_tree, graph, **kwargs)
         filter_tree.parameters.sigTreeStateChanged.connect(update_this_graph)
         sweep_tree.parameters.sigTreeStateChanged.connect(update_this_graph)
         
         
         self.block_update = False
-        
-        update_this_graph(is_first_time = True)
+        graph.init1D()
+        update_this_graph()
 
-    def updateGraph(self, 
+
+    def prepare_and_send_plot_dict(self,
         rfdata:ReadfileData, 
         filter_tree:FilterTreeView, 
         sweep_tree:SweepTreeView, 
         graph:MPLView,
-        is_first_time = False,
     ):
+        """ Prepare a new `plot_dict` and send to MPLView """
         if self.block_update: return
+        print("hi")
+        d = rfdata.data_dict
 
-        transpose_checked = filter_tree.transposeChecked()
-        x_title, y_title = sweep_tree.get_xy_titles(transpose=transpose_checked)
+        if d["sweep_dim"] == 1:
+            transpose_checked = filter_tree.transposeChecked()
+            x_title, y_title = sweep_tree.get_xy_titles(transpose=transpose_checked)
 
-        # 1D
-        print(rfdata.data_dict['sweep_dim'])
-        if rfdata.data_dict['sweep_dim'] == 1:
-            # FILTER
             x_data = rfdata.get_data(x_title)
             y_data = rfdata.get_data(y_title)
-            y_data, y_label = filter_tree.applyOnData(y_data, y_title)
+            y_data, y_title = filter_tree.applyOnData(y_data, y_title)
 
-            # KEYWORDS
-            plot_kwargs = dict(
-                xlabel=x_title,
-                ylabel=y_label,
-            )
-            #keywords_for_plot = self.setting_tree.get_kw(dim=1).to_dict()
-            self.ax = graph.plot1D(
-                x_data,
-                y_data,
-                grid=True,
-                is_first_time=is_first_time,
-                #keep_lims=not need_update_lims,
-                plot_kwargs=plot_kwargs
-            )
+            plot_dict = {
+                "x_title": x_title,
+                "y_title": y_title,
+                "x_data": rfdata.get_data(x_title),
+                "y_data": rfdata.get_data(y_title),
+                "grid": True
+            }
+            graph.plot1D(plot_dict)
 
-        # 2D
-        elif rfdata.data_dict['sweep_dim'] == 2:
+        elif d["sweep_dim"] == 2: 
             out_title = sweep_tree.get_z_title()
             alternate = sweep_tree.alternate_checked()
             
@@ -177,27 +171,15 @@ class MainView(QMainWindow):
             transpose=transpose_checked)
             img, out_label = filter_tree.applyOnData(img, out_title)
 
-            plot_kwargs = dict(
-                xlabel=x_title,
-                ylabel=y_title,
-                zlabel=out_label,
-                cmap=filter_tree.getCmap(),
-            )
-
-            graph.plot2D(
-                img, 
-                extent=rfdata.get_extent(transpose=transpose_checked),
-                grid=True,
-                is_first_time=is_first_time,
-                keep_ax_lims= not filter_tree.need_update_ax,
-                keep_cb_lims= not filter_tree.need_update_cb,
-                plot_kwargs=plot_kwargs
-            )
-
-        filter_tree.need_update_ax = True
-        filter_tree.need_update_cb = True
-                        
-    ####
+            plot_dict = {
+                "img": img,
+                "x_title": x_title,
+                "y_title": y_title,
+                "z_title": out_label,
+                "cmap": filter_tree.getCmap(),
+                "extent": rfdata.get_extent(transpose=transpose_checked)
+            }
+            graph.plot2D(plot_dict)
 
     # TRACE WINDOW
     def _findIndexOfClosestToTarget(self, target, array):
@@ -256,4 +238,3 @@ class MainView(QMainWindow):
             self.file_tree.changePath(file_urls[0])
         else:
             self.file_tree.sig_askOpenFile.emit(file_urls[0])
-

@@ -26,7 +26,5 @@ Application pyqt pour visualiser les données pyHegel et hdf5.
 
 # À faire:
 - afficher durée du sweep
-- middleclick for closing tab
-- drop zone folder in filetree
-- mise à jour automatique:
-  - recentrage du graph ?
+- mise à jour automatique pendant le sweep
+- disctinction de cas pour retraçage de graph

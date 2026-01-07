@@ -45,15 +45,41 @@ class FilterTreeView:
         self.tree = pg.parametertree.ParameterTree(showHeader=False)
         self.tree.setParameters(self.parameters, showTop=False)
 
-        self.need_update_ax = True
-        self.need_update_cb = True
+        self.displayed_dim = 0
+
+        self.need_set_data = True
+        self.need_new_ax_lims = True
+        self.need_new_cb_lims = True
 
         def onFilterChange(param, changes): # called when something changes in the filter tree
             print('filter change:', param, changes)
             #print(f"{self.need_update_cb=}")
-            if changes[0][0] == self.parameters.param('Filter', 'Transpose'):
-                self.need_update_ax = True
-                self.need_update_cb = False
+            p = self.parameters
+            change = changes[0][0]
+            dim = self.displayed_dim
+
+            if change == p.param('Filter', 'Transpose'):
+                self.need_new_ax_lims = True
+                self.need_new_cb_lims = False
+            
+            elif change in (
+                p.param('Filter', 'Type'),
+                p.param('Filter', 'Sigma'),
+                p.param('Filter', 'Order'),
+                p.param('2d sweep', 'z log')
+            ):
+                if dim == 1:
+                    self.need_new_ax_lims = True
+                if dim == 2:
+                    self.need_new_ax_lims = False
+                    self.need_new_cb_lims = True
+
+            elif change in (
+                p.param('2d sweep', 'cmap')
+            ):
+                self.need_new_ax_lims = False
+                self.need_new_cb_lims = False
+
                         
         self.parameters.sigTreeStateChanged.connect(onFilterChange)
 
@@ -74,11 +100,13 @@ class FilterTreeView:
             p.param('Filter', 'Type').setValue('No filter')
             #p.param('1d sweep').show()
             p.param('2d sweep').hide()
+            self.displayed_dim = 1
         elif rfdata.data_dict['sweep_dim'] == 2:
             p.param('Filter', 'Type').setLimits(d2_filters)
             p.param('Filter', 'Type').setValue('No filter')
             #p.param('1d sweep').hide()
             p.param('2d sweep').show()
+            self.displayed_dim = 2
 
         
         # Polar/Cartesian

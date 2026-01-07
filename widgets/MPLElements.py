@@ -78,7 +78,7 @@ class ResizableLine():
         dx = x1 - x0
         dy = y1 - y0
         slope = np.inf if dx == 0 else dy / dx
-        return f'Line:\n slope: {slope:.5f} \n deltaX: {dx:.5f} \n deltaY: {dy:.5f}'
+        return f'Line: slope: {slope:.5f} \n deltaX: {dx:.5f} deltaY: {dy:.5f}'
 
 
 
@@ -157,5 +157,5 @@ class Markers():
         
     def makeText(self, coord_l1, coord_l2):
         delta = abs(coord_l1 - coord_l2)
-        label = { 'v': 'VMarks\ndeltaX:', 'h': 'HMarks\ndeltaY:' }
+        label = { 'v': 'VMarks deltaX:', 'h': 'HMarks deltaY:' }
         return f'{label[self.orientation]} {delta:.5f}'

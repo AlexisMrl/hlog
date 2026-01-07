@@ -16,11 +16,10 @@ class CustomTabWidget(QTabWidget):
         super().__init__()
         self.main_view = main_view
         self.setTabBar(MiddleClickTabBar())
-        self.setTabsClosable(True)
+        #self.setTabsClosable(True)
         self.setAcceptDrops(True)
 
     def dragEnterEvent(self, event):
-        print(event.mimeData().hasUrls())
         if event.mimeData().hasUrls(): event.accept()
         else: event.ignore()
 
