@@ -1,6 +1,31 @@
 import pyHegel.commands as c
 import os, sys, hashlib
+import h5py
 import numpy as np
+
+DATA_DICT_FORMAT = {
+    'x': {
+        'range': [-1,1,6,0.2], 
+        'title': 'random_x', 
+        'data': np.zeros((11,6))},
+    'y': {
+        'range': [0,2,11,0.1], 
+        'title': 'random_y', 
+        'data': np.zeros((11,6))
+    },
+    'out': {
+        'titles': ['out1', 'out2'],
+        'data': [np.random.rand(11,6), np.random.rand(11,6)]
+    },
+    'computed_out': {'titles': [], 'data': []}, # for computed data (r, deg, x, y)
+    'alternate': False,
+    'beforewait': True,
+    'sweep_dim': 2,
+            #'hl_logs': {'dev1': 0.1, 'dev2': 0.2},
+            #'ph_logs': ['#dev1', '#dev2']
+    'config': [],
+    'comments': []
+    }
 
 class ReadfileData:
 
@@ -14,13 +39,14 @@ class ReadfileData:
     def get_data(self, title, alternate=False, transpose=False):
         # get the data array corresponding to the title
         # search in the out titles and data
+        print(title)
         if title in self.data_dict['out']['titles']:
             i = self.data_dict['out']['titles'].index(title)
             data_cp = self.data_dict['out']['data'][i].copy()
         # search in the computed_out titles and data
-        elif title in self.data_dict['computed_out']['titles']:
-            i = self.data_dict['computed_out']['titles'].index(title)
-            data_cp = self.data_dict['computed_out']['data'][i].copy()
+        #elif title in self.data_dict['computed_out']['titles']:
+        #    i = self.data_dict['computed_out']['titles'].index(title)
+        #    data_cp = self.data_dict['computed_out']['data'][i].copy()
         else:
             raise KeyError()
         if self.data_dict['sweep_dim'] == 1:
@@ -89,53 +115,17 @@ class ReadfileData:
 
     @staticmethod
     def from_filepath(filepath):
-        #TODO: make sure filepath exists
-        try:
-            data, titles, headers = c.readfile(filepath, getheaders=True, multi_sweep='force')
-        except:
-            try:
-                data, titles, headers = c.readfile(filepath, getheaders=True, multi_sweep=False)
-            except Exception as e:
-                raise e
-
         h =  hash_file(filepath)
         metadata = os.stat(filepath)
 
-        data_dict = {
-            'x': {
-                'range': [-1,1,6,0.2], 
-                'title': 'random_x', 
-                'data': np.zeros((11,6))},
-            'y': {
-                'range': [0,2,11,0.1], 
-                'title': 'random_y', 
-                'data': np.zeros((11,6))
-            },
-            'out': {
-                'titles': ['out1', 'out2'],
-                'data': [np.random.rand(11,6), np.random.rand(11,6)]
-            },
-            'computed_out': {'titles': [], 'data': []}, # for computed data (r, deg, x, y)
-            'alternate': False,
-            'beforewait': True,
-            'sweep_dim': 2,
-                    #'hl_logs': {'dev1': 0.1, 'dev2': 0.2},
-                    #'ph_logs': ['#dev1', '#dev2']
-            'config': [],
-            'comments': []
-         }
-
-        if data[0].ndim == 1:
-            data_dict['sweep_dim'] = 1
-            ph_build1DDataDict(data, titles, headers, data_dict)
-        elif data[0].ndim == 2:
-            data_dict['sweep_dim'] = 2
-            ph_build2dDataDict(data, titles, headers, data_dict)
-
-        data_dict['beforewait'] = ph_findBeforeWait(headers)
-        config, comment = ph_findConfigAndComments(headers)
-        data_dict['config'] = config
-        data_dict['comments'] = comment
+        ext = filepath.split('.')[1]
+        print(ext)
+        if ext == "txt": # it's a pyHegel file
+            data_dict = ph_load(filepath)
+        elif ext == "hdf5":
+            data_dict = h5_load(filepath)
+        else:
+            raise NotImplementedError(f"Filetype {ext} not supported")
 
         return ReadfileData(
             filepath,
@@ -144,12 +134,36 @@ class ReadfileData:
             data_dict=data_dict,
         )
 
+def ph_load(filepath) -> dict:
+    data_dict = DATA_DICT_FORMAT.copy()
+    try:
+        data, titles, headers = c.readfile(filepath, getheaders=True, multi_sweep='force')
+    except:
+        try:
+            data, titles, headers = c.readfile(filepath, getheaders=True, multi_sweep=False)
+        except Exception as e:
+            raise e
+
+    if data[0].ndim == 1:
+        data_dict['sweep_dim'] = 1
+        ph_build1DDataDict(data, titles, headers, data_dict)
+    elif data[0].ndim == 2:
+        data_dict['sweep_dim'] = 2
+        ph_build2DDataDict(data, titles, headers, data_dict)
+
+    data_dict['beforewait'] = ph_findBeforeWait(headers)
+    config, comment = ph_findConfigAndComments(headers)
+    data_dict['config'] = config
+    data_dict['comments'] = comment
+
+    return data_dict
+
 def ph_build1DDataDict(data, titles, header, data_dict):
     # in one dimension, we use the x and out keys
     x_data = data[0]
     data_dict['x']['data'] = x_data
     data_dict['x']['title'] = titles[0]
-    data_dict['x']['range'] = ph_findSweepRange1D(x_data)
+    data_dict['x']['range'] = findSweepRange1D(x_data)
 
     data_dict['out']['titles'] = []
     data_dict['out']['data'] = []
@@ -166,7 +180,7 @@ def ph_detectXYIndex(titles):
         return 0, 2
     return 0, 1
 
-def ph_build2dDataDict(data, titles, headers, data_dict):
+def ph_build2DDataDict(data, titles, headers, data_dict):
     x_index, y_index = ph_detectXYIndex(titles)
     data_x, data_y = data[x_index], data[y_index]
     data_dict['x']['data'] = data_x
@@ -191,20 +205,7 @@ def ph_build2dDataDict(data, titles, headers, data_dict):
         out_data = out_data[:,::-1] if rev_y else out_data
         #print(rev_x, rev_y)
         data_dict['out']['data'].append(out_data)
-    
-def ph_findSweepRange1D(array):
-    # try to find the ranges the sweep array
-    start, stop, nbpts, step = np.nan, np.nan, len(array), np.nan
-    if array[0] != np.nan:
-        start = array[0]
-        if not np.isnan(array[-1]):
-            stop = array[-1]
-            step = (stop - start) / (nbpts - 1)
-        elif not np.isnan(array[1]):
-            step = array[1] - array[0]
-            stop = start + step * (nbpts - 1)
-    return [start, stop, nbpts, step]
-    
+
 def ph_findSweepRange2D(data, headers, data_dict):
     # try to find the ranges of the 2d sweep
     # for multi sweep, it is not well written in the headers
@@ -230,7 +231,7 @@ def ph_findSweepRange2D(data, headers, data_dict):
 
     # 1.2 for X try to deduce start/stop from the data
     array_x = data[0][:,0]
-    range_x = ph_findSweepRange1D(array_x)
+    range_x = findSweepRange1D(array_x)
         
     data_dict['x']['range'] = range_x
     data_dict['y']['range'] = [start_y, stop_y, nbpts_y, step_y]
@@ -258,6 +259,80 @@ def ph_findBeforeWait(headers):
     except:
         beforewait = np.nan
     return beforewait
+
+def h5_load(filepath) -> dict:
+    data_dict = DATA_DICT_FORMAT.copy()
+    with h5py.File(filepath, "r") as file:
+        data, meta = file.get("data"), file.get("meta")
+
+        if meta.attrs.get("VERSION") != 0.1: 
+            raise NotImplementedError(f"Filetype {ext} not supported")
+
+        sweep_names = data.attrs.get("sweeped_ax_names")
+        out_names = data.attrs.get("result_data_names")
+
+        if len(sweep_names) == 1:
+            data_dict['sweep_dim'] = 1
+            h5_build1DDataDict(data, sweep_names[0], out_names, data_dict)
+            #ph_build1DDataDict(data, titles, headers, data_dict)
+        elif len(sweep_names) == 2:
+            data_dict['sweep_dim'] = 2
+            h5_build2DDataDict(data, sweep_names, out_names, data_dict)
+            #ph_build2DDataDict(data, titles, headers, data_dict)
+        else:
+            raise NotImplementedError(f"Sweep dimension not 1 or 2")
+    
+        data_dict['config'] = meta.attrs.get("config")
+        data_dict['comments'] = meta.attrs.get("cell")
+
+
+    return data_dict
+
+def h5_build1DDataDict(data, sweeped_name, out_names, data_dict):
+    # in one dimension, we use the x and out keys
+    x_data = data.get(sweeped_name)[:]
+    data_dict['x']['data'] = x_data
+    data_dict['x']['title'] = sweeped_name
+    data_dict['x']['range'] = findSweepRange1D(x_data)
+
+    data_dict['out']['titles'] = []
+    data_dict['out']['data'] = []
+    for i, title in enumerate(out_names):
+        data_dict['out']['titles'].append(title)
+        data_dict['out']['data'].append(data.get(title)[:])
+
+def h5_build2DDataDict(data, sweeped_names, out_names, data_dict):
+    data_dict['x']['title'] = x_lbl = sweeped_names[0]
+    data_dict['y']['title'] = y_lbl = sweeped_names[1]
+    data_x, data_y = data[x_lbl][:], data[y_lbl][:]
+    data_dict['x']['data'] = data_x
+    data_dict['y']['data'] = data_y
+
+    data_dict['x']['range'] = findSweepRange1D(data_x)
+    data_dict['y']['range'] = findSweepRange1D(data_y)
+
+    data_dict['out']['titles'] = []
+    data_dict['out']['data'] = []
+    for i, title in enumerate(out_names):
+        data_dict['out']['titles'].append(title)
+        out_data = data[title][:]
+        data_dict['out']['data'].append(out_data)
+
+    return data_dict
+
+def findSweepRange1D(array):
+    # try to find the ranges the sweep array
+    start, stop, nbpts, step = np.nan, np.nan, len(array), np.nan
+    if array[0] != np.nan:
+        start = array[0]
+        if not np.isnan(array[-1]):
+            stop = array[-1]
+            step = (stop - start) / (nbpts - 1)
+        elif not np.isnan(array[1]):
+            step = array[1] - array[0]
+            stop = start + step * (nbpts - 1)
+    return [start, stop, nbpts, step]
+    
 
 def hash_file(filepath: str) -> str:
     if not os.path.isfile(filepath):

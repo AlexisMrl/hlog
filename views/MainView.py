@@ -1,4 +1,4 @@
-from PyQt5.QtWidgets import QMainWindow, QVBoxLayout, QSplitter, QWidget, QTabWidget
+from PyQt5.QtWidgets import QMainWindow, QVBoxLayout, QSplitter, QWidget, QTabWidget, QTabBar
 from PyQt5.QtWidgets import QToolBar, QAction, QMenu
 from PyQt5.QtCore import Qt, pyqtSignal
 import pyqtgraph as pg
@@ -10,11 +10,12 @@ from views.SettingTreeView import SettingTreeView
 from views.SweepTreeView import SweepTreeView
 from views.FileTreeView import FileTreeView
 
+from widgets.CustomQWidgets import CustomTabWidget
+
 from src.ReadfileData import ReadfileData
 
-
-from scipy.ndimage import gaussian_filter1d, gaussian_filter
 import numpy as np
+import os
 
 
 class MainView(QMainWindow):
@@ -38,8 +39,7 @@ class MainView(QMainWindow):
         
         ## MAIN LAYOUT
         self.file_tree = FileTreeView(self)
-        self.graphic_tabs = QTabWidget()
-        self.graphic_tabs.setTabsClosable(True)
+        self.graphic_tabs = CustomTabWidget(self)
         self.graphic_tabs.tabCloseRequested.connect(self.closeTab)
 
         # Splitter: (FILES, TABS)
@@ -48,6 +48,7 @@ class MainView(QMainWindow):
         self.v_splitter.addWidget(self.graphic_tabs)
         self.setCentralWidget(self.v_splitter)
         self.v_splitter.setSizes([300, 500])
+        ##
 
     def newTab(self, name:str):
         """ Build tab layout
@@ -58,7 +59,7 @@ class MainView(QMainWindow):
         graph = MPLView(self)
         # --
         sweep_tree = SweepTreeView()
-        filter_tree= FilterTreeView()
+        filter_tree = FilterTreeView()
         setting_tree = SettingTreeView()
         # bottom (sweep, [analyse, graph settings])
         setting_tabs = QTabWidget()
@@ -76,21 +77,44 @@ class MainView(QMainWindow):
         layout.addWidget(bottom_splitter)
         layout.setSizes([250, 100])
 
+        # saving trees for easy retrieve
+        layout.sweep_tree = sweep_tree
+        layout.filter_tree = filter_tree
+        layout.setting_tree = setting_tree
+        layout.graph = graph
+
+        # add the tab
         self.graphic_tabs.addTab(layout, name)
         self.graphic_tabs.setCurrentWidget(layout)
 
         return sweep_tree, filter_tree, setting_tree, graph
 
-    def closeTab(self, index):
+    def currentTab(self, name):
+        layout = self.graphic_tabs.currentWidget()
+        if not layout:
+            return self.newTab(name)
+
+        sweep_tree  = layout.sweep_tree
+        filter_tree = layout.filter_tree
+        setting_tree = layout.setting_tree
+        graph = layout.graph
+        return sweep_tree, filter_tree, setting_tree, graph
+
+    def closeTab(self, index=None):
+        if not index:
+            index = self.graphic_tabs.currentIndex()
         self.graphic_tabs.removeTab(index)
 
     def write(self, text):
         print(text)
         self.statusBar().showMessage(text)
 
-    def onFileOpened(self, rfdata):
+    def onFileOpened(self, rfdata, new_tab_asked:bool):
+        if new_tab_asked:
+            sweep_tree, filter_tree, setting_tree, graph = self.newTab(name=rfdata.filename)
+        else:
+            sweep_tree, filter_tree, setting_tree, graph = self.currentTab(name=rfdata.filename)
 
-        sweep_tree, filter_tree, setting_tree, graph = self.newTab(name=rfdata.filename)
 
         # Tell the views about the new rfdata:
         self.block_update = True
@@ -122,6 +146,7 @@ class MainView(QMainWindow):
         x_title, y_title = sweep_tree.get_xy_titles(transpose=transpose_checked)
 
         # 1D
+        print(rfdata.data_dict['sweep_dim'])
         if rfdata.data_dict['sweep_dim'] == 1:
             # FILTER
             x_data = rfdata.get_data(x_title)
@@ -174,89 +199,6 @@ class MainView(QMainWindow):
                         
     ####
 
-    def update_plot(self, rfdata, graphic):#, data_changed=False, file_changed=False, new_tab=False):
-        # called on file open or when a parameter is changed
-        if self.block_update: return
-
-        self.block_update = True
-
-        # reset traces
-        self.traces = []
-        
-        # # Polar/Cartesian conversion
-        # conversion_type = self.filters.param('Polar/Cartesian', 'type').value()
-        # if conversion_type != 'No conversion':
-        #     param_1, param_2 = self.filters.param('Polar/Cartesian').children()[1:]
-        #     if conversion_type == 'Polar to Cart':
-        #         param_1.setName('r')
-        #         param_2.setName('theta')
-        #         rfdata.genXYData(param_1.value(), param_2.value())
-        #     elif conversion_type == 'Cart to Polar':
-        #         param_1.setName('x')
-        #         param_2.setName('y')
-        #         rfdata.genPolarData(param_1.value(), param_2.value())
-        # else:
-        #     rfdata.clearComputedData()
-        # self._updateOutTitles()
-        #self.mplkw.param('YLabel').setValue(y_title)
-        #self.mplkw.param('XLabel').setDefault(x_title)
-        #self.mplkw.param('YLabel').setDefault(y_title)
-
-        x_title, y_title = self.sweep_tree.get_xy_titles()
-
-        if rfdata.data_dict['sweep_dim'] == 1:
-            x_data = rfdata.get_data(x_title)
-            y_data = rfdata.get_data(y_title)
-            y_data = self.filter_tree.apply_on(y_data)
-            keywords_for_plot = self.setting_tree.get_kw(dim=1).to_dict()
-
-            graphic.display_plot(x_data, y_data, plot_kwargs=keywords_for_plot)#, is_new_data=data_changed, is_new_file=file_changed)
-
-        elif rfdata.data_dict['sweep_dim'] == 2:
-            out_title = self.sweep_tree.get_z_title()
-            alternate = self.sweep_tree.alternate_checked()
-            #transpose = self.sweep_tree.transpose_checked()
-
-            #cbar_min = self.filters.param('Colorbar', 'min').value()
-            #cbar_max = self.filters.param('Colorbar', 'max').value()
-            
-            img = rfdata.get_data(out_title, alternate=alternate)
-            img = self.filter_tree.apply_on(img)
-
-            extent = rfdata.get_extent()
-        
-            keywords_for_plot = self.setting_tree.get_kw(dim=2).to_dict()
-            graphic.display_image(img, extent, plot_kwargs=keywords_for_plot)#, is_new_data=data_changed, is_new_file=file_changed, cbar_min_max=(cbar_min, cbar_max))
-
-        self.block_update = False
-
-    def current_graph(self, force_new:bool):
-        graph = self.graphic_tabs.currentWidget()
-        if not graph:
-            return self.newGraph() if force_new else None
-        return graph
-
-    def _updateOutTitles(self):
-        # update the out titles in the filter tree, keeping the current value selected
-        # usefull to dynamically add new out titles (polar/cartesian)
-        rfdata = self.hlog.current_data
-        out_titles = rfdata.data_dict['out']['titles']
-        computed_out_titles = rfdata.data_dict['computed_out']['titles']
-        if rfdata.data_dict['sweep_dim'] == 1:
-            current_x, current_y = self.params.param('Out', 'x').value(), self.params.param('Out', 'y').value()
-            self.params.param('Out', 'x').setLimits(out_titles + computed_out_titles)
-            self.params.param('Out', 'y').setLimits(out_titles + computed_out_titles)
-            if current_x in out_titles + computed_out_titles:
-                self.params.param('Out', 'x').setValue(current_x)
-            if current_y in out_titles + computed_out_titles:
-                self.params.param('Out', 'y').setValue(current_y)
-        elif rfdata.data_dict['sweep_dim'] == 2:
-            current_z = self.params.param('Out', 'z').value()
-            self.params.param('Out', 'z').setLimits(out_titles + computed_out_titles)
-            if current_z in out_titles + computed_out_titles:
-                self.params.param('Out', 'z').setValue(current_z)
-    
-    
     # TRACE WINDOW
     def _findIndexOfClosestToTarget(self, target, array):
         # find the closest point in the array to the target
@@ -302,3 +244,16 @@ class MainView(QMainWindow):
         self.trace_window.clear()
         self.current_graph().clearCrosses()
         self.current_graph().canvas.draw()
+
+    ### DROP
+
+    def dropEvent(self, e):
+        file_urls = [url.toLocalFile() for url in e.mimeData().urls()]
+        if len(file_urls) > 1:
+            self.write('I\'m sorry but one file at a time please...\n Or you can drop your folder to open it.')
+            return
+        if os.path.isdir(file_urls[0]):
+            self.file_tree.changePath(file_urls[0])
+        else:
+            self.file_tree.sig_askOpenFile.emit(file_urls[0])
+

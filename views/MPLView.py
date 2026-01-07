@@ -235,21 +235,6 @@ class MPLView(QWidget):
         self.text = self.ax.text(0.5, 0.5, text, ha="center", va="center", fontsize=12, color="gray")
         self.canvas.draw()
 
-    # DRAG DROP
-    def dragEnterEvent(self, e):
-        if e.mimeData().hasUrls(): e.accept()
-        else: e.ignore()
-    
-    def dropEvent(self, e):
-        file_urls = [url.toLocalFile() for url in e.mimeData().urls()]
-        if len(file_urls) > 1:
-            self.write('I\'m sorry but one file at a time please...\n Or you can drop your folder to open it.')
-            return
-        if os.path.isdir(file_urls[0]):
-            self.parent.controller.changePath(file_urls[0])
-        else:
-            self.parent.controller.openFile(file_urls[0])
-
 def set_1d_ax_lim(ax, x_data, y_data, padding_factor=0.05):
     x_padding = padding_factor*(np.nanmax(x_data)-np.nanmin(x_data))
     y_padding = padding_factor*(np.nanmax(y_data)-np.nanmin(y_data))

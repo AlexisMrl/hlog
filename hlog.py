@@ -12,7 +12,7 @@ from src.Popup import Popup
 
 class hlog(QObject):
 
-    sig_fileOpened = pyqtSignal(ReadfileData)
+    sig_fileOpened = pyqtSignal(ReadfileData, bool)
 
     def __init__(self, path:str, app:QApplication=None, file=None):
         super().__init__()
@@ -38,22 +38,24 @@ class hlog(QObject):
     def openFile(self, path):
         self.main_view.write('Opening file: '+path)
 
-        if path[-3:]=='txt': 
-            # ReadfileData in a thread
-            # ReadfileData.from_filepath(path)
-            self.loading_thread = QuickThread(ReadfileData.from_filepath, filepath=path)
-            self.loading_thread.sig_finished.connect(self.onFileOpened)
-            self.loading_thread.sig_error.connect(self.onFileOpenError)
-            self.loading_thread.start()
+        # ReadfileData in a thread
+        # ReadfileData.from_filepath(path)
+        self.loading_thread = QuickThread(ReadfileData.from_filepath, filepath=path)
+        self.loading_thread.sig_finished.connect(self.onFileOpened)
+        self.loading_thread.sig_error.connect(self.onFileOpenError)
+        self.loading_thread.start()
 
-        else:
-            self.main_view.write('File type not supported :(\n'+path)
+        #else:
+        #    self.main_view.write('File type not supported :(\n'+path)
         
     def onFileOpened(self, rfdata, fn_args, fn_kwargs):
         # called on thread success
         filepath = fn_kwargs.get("filepath")
-        self.main_view.write('File opened')
-        self.sig_fileOpened.emit(rfdata)
+        self.main_view.write('Successfully opened: '+filepath)
+        self.rfdata = rfdata # DEBUG
+        print(self.main_view.file_tree.new_tab_asked)
+        self.sig_fileOpened.emit(rfdata, self.main_view.file_tree.new_tab_asked)
+        self.main_view.file_tree.new_tab_asked = False
     
     def onFileOpenError(self, exception, fn_args, fn_kwargs):
         filepath = fn_kwargs.get("filepath")

@@ -15,6 +15,8 @@ class FileTreeView(QWidget):
         self.model = QFileSystemModel()
         self.view = QTreeView()
         self.view.setModel(self.model)
+
+        self.new_tab_asked = False
         
         # arrange columns
         self.view.setColumnHidden(2, True) # hide type
@@ -70,7 +72,11 @@ class FileTreeView(QWidget):
 
         # Enter or Space -> open file
         if key in (Qt.Key_Return, Qt.Key_Space):
-            self.askOpenFile()
+            if modifiers & Qt.ShiftModifier:
+                self.openInNewTab()
+            else:
+                self.askOpenFile()
+
         elif key == Qt.Key_H:
             self.view.keyPressEvent(QKeyEvent(QEvent.KeyPress, Qt.Key_Left, Qt.NoModifier))
         elif key == Qt.Key_L:
@@ -90,6 +96,24 @@ class FileTreeView(QWidget):
             else:
                 self.view.keyPressEvent(QKeyEvent(QEvent.KeyPress, Qt.Key_Home, Qt.NoModifier))
 
+        elif key == Qt.Key_W:
+            if modifiers & Qt.ControlModifier:
+                self.main_view.closeTab()
+
+        elif (key == Qt.Key_Tab and modifiers & Qt.ControlModifier) or \
+            (key == Qt.Key_Backtab and modifiers & Qt.ControlModifier):
+
+            tabs = self.main_view.graphic_tabs
+            n = tabs.count()
+            if n == 0:
+                return
+
+            i = tabs.currentIndex()
+
+            if key == Qt.Key_Backtab:
+                tabs.setCurrentIndex((i - 1) % n)
+            else:
+                tabs.setCurrentIndex((i + 1) % n)
         else:
             QTreeView.keyPressEvent(self.view, event)
 
@@ -128,21 +152,18 @@ class FileTreeView(QWidget):
             self.main_view.write('Could not open in text editor: '+path)
 
     def openInNewTab(self):
-        index = self.view.currentIndex()
-        path = self.model.filePath(index)
-        if not self.model.isDir(index):
-            self.main_view.write("not implemented")
-            #self.parent.open_file(path, new_tab=True)
+        self.new_tab_asked = True
+        self.askOpenFile()
     
     def goUpDir(self):
         path = self.model.filePath(self.view.rootIndex())
         path = os.path.dirname(path)
-        self.askChangePath(path)
+        self.changePath(path)
 
     def openDir(self):
         index = self.view.currentIndex()
         path = self.model.filePath(index)
-        self.askChangePath(path)
+        self.changePath(path)
         
     def copyPath(self):
         index = self.view.currentIndex()
