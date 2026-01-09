@@ -29,13 +29,18 @@ DATA_DICT_FORMAT = {
 
 class ReadfileData:
 
-    def __init__(self, filepath, metadata, h, data_dict):
+    def __init__(self, filepath, metadata, h, data_dict, reload_function):
         self.h = h
         self.metadata = metadata
         self.filepath = filepath
         self.filename = os.path.basename(filepath)
         self.data_dict = data_dict
         self.plot_dict = None # used to store current plotted (filtered) data
+        self.reload_function = reload_function
+    
+    def reload(self):
+        self.data_dict = self.reload_function(self.filepath)
+        return self
             
     def get_data(self, title, alternate=False, transpose=False):
         # get the data array corresponding to the title
@@ -116,18 +121,16 @@ class ReadfileData:
         metadata = os.stat(filepath)
 
         ext = filepath.split('.')[-1]
-        if ext == "txt": # it's a pyHegel file
-            data_dict = ph_load(filepath)
-        elif ext == "hdf5":
-            data_dict = h5_load(filepath)
-        else:
-            raise NotImplementedError(f"Filetype {ext} not supported")
+        # Get load_function, fallback to pyHegel
+        load_function = {"txt": ph_load, "hdf5": h5_load}.get(ext, ph_load)
+        data_dict = load_function(filepath)
 
         return ReadfileData(
             filepath,
             metadata=metadata,
             h=h,
             data_dict=data_dict,
+            reload_function = load_function
         )
 
 def ph_load(filepath) -> dict:

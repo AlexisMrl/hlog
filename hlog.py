@@ -37,8 +37,7 @@ class hlog(QObject):
 
     def openFile(self, path):
         self.main_view.write('Opening file: '+path)
-        print("openFile:")
-        print(self.main_view.file_tree.new_tab_asked)
+        
         # ReadfileData in a thread
         # ReadfileData.from_filepath(path)
         self.loading_thread = QuickThread(ReadfileData.from_filepath, filepath=path)

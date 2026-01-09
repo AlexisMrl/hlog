@@ -9,6 +9,7 @@ import numpy as np
 d1_filters = ['No filter', 'dy/dx']  # filters possible for 1d data
 d2_filters = ['No filter', 'dz/dx', 'dz/dy', 'Gaussian filter'] # filters possible for 2d data
 children = [
+    {'name': 'auto update', 'type': 'bool', 'value': False},
     {'name': 'Filter', 'type': 'group', 'children': [
         {'name': 'Transpose', 'type': 'bool', 'value': False},
 
@@ -103,6 +104,10 @@ class FilterTreeView:
     def zLogChecked(self):
         p = self.parameters
         return p.param('2d sweep', 'z log').value()
+
+    def autoUpdateChecked(self):
+        p = self.parameters
+        return p.param('auto update').value()
     
     def getCmap(self):
         return self.parameters.param('2d sweep', 'cmap').value()

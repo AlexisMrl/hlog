@@ -1,6 +1,6 @@
 from PyQt5.QtWidgets import QMainWindow, QVBoxLayout, QSplitter, QWidget, QTabWidget, QTabBar
 from PyQt5.QtWidgets import QToolBar, QAction, QMenu
-from PyQt5.QtCore import Qt, pyqtSignal
+from PyQt5.QtCore import Qt, pyqtSignal, QTimer
 import pyqtgraph as pg
 
 from views.MPLView import MPLView
@@ -32,7 +32,6 @@ class MainView(QMainWindow):
         self.setWindowIcon(icon)
         
         self.block_update = False
-        self.current_plot_dict_rfdata = None
 
         ## extra windows
         # TODO: remove `self` dependence
@@ -201,6 +200,20 @@ class MainView(QMainWindow):
 
         self.block_update = False
 
+        if filter_tree.autoUpdateChecked() and not graph.waiting_for_update:
+            graph.waiting_for_update = True
+            QTimer.singleShot(
+                2000,
+                lambda: self._delayed_update(
+                    rfdata, filter_tree, sweep_tree, graph
+                )
+            )
+
+    def _delayed_update(self, rfdata, filter_tree, sweep_tree, graph):
+        graph.waiting_for_update = False
+        self.prepare_and_send_plot_dict(
+            rfdata.reload(), filter_tree, sweep_tree, graph
+        )
 
     ### TRACE WINDOW
     def showTraceWindow(self):

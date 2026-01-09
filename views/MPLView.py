@@ -20,6 +20,8 @@ class MPLView(QWidget):
         super().__init__()
         self.parent = parent
 
+        self.waiting_for_update = False
+
         self.figure = Figure()
         self.ax = self.figure.add_subplot(111)
         self.ax.autoscale(enable=True)
