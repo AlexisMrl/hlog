@@ -29,7 +29,7 @@ class MPLTraceWidget(QWidget):
 
         self.canvas = FigureCanvas(self.figure)
         self.toolbar = NavigationToolbar(self.canvas, self)
-        self.clear_action = self.toolbar.addAction('Clear', self.parent.clearTraces)
+        self.clear_action = self.toolbar.addAction('Clear', self.clear)
 
         layout = QVBoxLayout()
         layout.addWidget(self.toolbar)
@@ -40,14 +40,6 @@ class MPLTraceWidget(QWidget):
 
         self.color = ['royalblue','orange','forestgreen','red','darkviolet', 'peru', 'hotpink', 'lightslategray', 'olive', 'darkturquoise']
         self.color_index = -1
-        
-        self.checkboxes = []
-        
-        #self.cursorV = Cursor(self.axV, useblit=True, color='black', linewidth=1)
-        #self.cursorH = Cursor(self.axH, useblit=True, color='black', linewidth=1)
-        #self.resizable_lineV = ResizableLine(self, visible=False)
-        #self.resizable_lineH = ResizableLine(self, visible=False)
-
 
         self.clear() # init plots
         
@@ -67,10 +59,14 @@ class MPLTraceWidget(QWidget):
         self.color_index += 1
         return self.color[self.color_index % len(self.color)]
     
-    def plotHorizontalTrace(self, x, y, color='tab:blue'):
-        self.axH.plot(x, y, color, **self.plotkw)
+    def plotHorizontalTrace(self, x, y, color='tab:blue', label=None):
+        self.axH.plot(x, y, color, **self.plotkw, label=label)
+        self.axH.legend()
+        self.figure.tight_layout()
         self.canvas.draw()
     
-    def plotVerticalTrace(self, x, y, color='tab:blue'):
-        self.axV.plot(x, y, color, **self.plotkw)
+    def plotVerticalTrace(self, x, y, color='tab:blue', label=None):
+        self.axV.plot(x, y, color, **self.plotkw, label=label)
+        self.axV.legend()
+        self.figure.tight_layout()        
         self.canvas.draw()

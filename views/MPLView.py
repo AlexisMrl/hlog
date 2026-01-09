@@ -1,7 +1,7 @@
 import sys, os
 import numpy as np
 from PyQt5.QtWidgets import QWidget, QVBoxLayout, QAction, QToolBar
-from PyQt5.QtCore import Qt
+from PyQt5.QtCore import Qt, pyqtSignal
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
 from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT as NavigationToolbar
@@ -13,6 +13,8 @@ from widgets.MPLElements import ResizableLine, Markers
 from widgets.MPLToolbar import MPLToolbar
 
 class MPLView(QWidget):
+    
+    sig_traceAsked = pyqtSignal(float, float) # xy_tuple
 
     def __init__(self, parent=None):
         super().__init__()
@@ -67,12 +69,13 @@ class MPLView(QWidget):
         self.canvas.draw()
 
         if rfdata.data_dict["sweep_dim"] == 1:
-            self.line = self.ax.plot(0, 0)[0]
+            plotkw = {'marker': 'o', 'linestyle': '-', 'markersize': 3, 'linewidth': 1}
+            self.line = self.ax.plot(0, 0, **plotkw)[0]
             self.plot_dict_fns = {
                 "x_title": self.ax.set_xlabel,
                 "y_title": self.ax.set_ylabel,
                 "x_or_y_data": self.line.set_data,
-                "grid": lambda visible: self.ax.grid(visible=visible)
+                "grid": lambda visible: self.ax.grid(visible=visible, color='#DDDDDD', linestyle='-', linewidth=1, alpha=1)
             }
 
             self.last_plot_dict = {}
@@ -99,13 +102,13 @@ class MPLView(QWidget):
             self.last_plot_dict = {}
             self.figure.tight_layout()
 
-    def plot1D(self, plot_dict):
+    def plot1D(self, rfdata):
         """ go through plot_dict
         if val is different from self.last_plot_dict:
             update using the function in self.plot_fns
         some special cases are treated first, with a pop.
         """
-        d = plot_dict
+        d = rfdata.plot_dict.copy()
         last_d = self.last_plot_dict
         self.last_plot_dict = d.copy() # SAVE for the future update
 
@@ -128,7 +131,7 @@ class MPLView(QWidget):
         
 
         # OTHER KEYS
-        for key, val in plot_dict.items():
+        for key, val in d.items():
             # if val is different from before, exec the function
             if val != last_d.get(key, None):
                 #print(f"new:{key} {val}")
@@ -137,15 +140,14 @@ class MPLView(QWidget):
         
         if need_redraw:
             self.canvas.draw_idle()
-        
 
-    def plot2D(self, plot_dict):
+    def plot2D(self, rfdata):
         """ go through plot_dict
         if val is different from self.last_plot_dict:
             update using the function in self.plot_fns
         some special cases are treated first, with a pop.
         """
-        d = plot_dict
+        d = rfdata.plot_dict.copy()
         last_d = self.last_plot_dict
         self.last_plot_dict = d.copy() # SAVE for the future update
 
@@ -199,7 +201,7 @@ class MPLView(QWidget):
             #
 
         # OTHER KEYS
-        for key, val in plot_dict.items():
+        for key, val in d.items():
             # if val is different from before, exec the function
             if val != last_d.get(key, None):
                 print(f"new:{key} {val}")
@@ -208,65 +210,6 @@ class MPLView(QWidget):
         if need_redraw:
             self.canvas.draw_idle()
 
-    def plot2D_old(self,
-        image_data,
-        extent,
-        grid=False,
-        is_first_time=False,
-        keep_ax_lims=False,
-        keep_cb_lims=False,
-        plot_kwargs={},
-    ):
-        # CLEAR
-        if self.bar:
-            self.bar.remove()
-            self.bar = None
-        if self.im:
-            last_ax_xlim, last_ax_ylim = self.ax.get_xlim(), self.ax.get_ylim()
-            last_im_clim = self.im.get_clim()
-        self.ax.clear()
-        # PLOT
-        self.ax.set_title(plot_kwargs.pop('title', ''))
-        self.ax.set_xlabel(plot_kwargs.pop('xlabel', ''))
-        self.ax.set_ylabel(plot_kwargs.pop('ylabel', ''))
-        zlabel = plot_kwargs.pop('zlabel', '')
-        if grid:
-            self.ax.grid(color='#DDDDDD', linestyle='--', linewidth=0.8, alpha=0.3)
-
-        # PLOT
-        self.im = self.ax.imshow(
-            image_data,
-            origin='lower', 
-            aspect='auto', 
-            interpolation='nearest',
-            extent=extent,
-            **plot_kwargs
-        )
-        self.bar = self.figure.colorbar(self.im, ax=self.ax, label=zlabel)
-
-        if keep_ax_lims and not is_first_time:
-            self.ax.set_xlim(last_ax_xlim)
-            self.ax.set_ylim(last_ax_ylim)
-        if keep_cb_lims and not is_first_time:
-            print("cb kept")
-            self.im.set_clim(last_im_clim)
-
-        # DRAW objects if extent changed
-        self.ax.add_artist(self.resizable_line.line)
-        self.ax.add_artist(self.vmarkers.line1); self.ax.add_artist(self.vmarkers.line2)
-        self.ax.add_artist(self.hmarkers.line1); self.ax.add_artist(self.hmarkers.line2)
-        if extent != self.last_extent:
-            x0, x1, y0, y1 = extent
-            self.resizable_line.setPosition(x0, y0, x1, y1)
-            self.vmarkers.setPosition(x0, x1)
-            self.hmarkers.setPosition(y0, y1)
-            self.last_extent = extent
-
-
-        self.canvas.draw_idle()
-        if is_first_time: self.figure.tight_layout()
-
-
     # HANDLING EVENTS
 
     def onMouseClick(self, event):
@@ -274,19 +217,20 @@ class MPLView(QWidget):
         #print('click', event.xdata, event.ydata)
         if event.button == 1:
             if self.actionTrace.isChecked():
-                self.parent.showTrace(event.xdata, event.ydata)
+                #self.parent.showTrace(event.xdata, event.ydata)
+                self.sig_traceAsked.emit(event.xdata, event.ydata)
     
     def onPick(self, event):
         artist = event.artist
+        print(artist)
+        pass
         if artist == self.resizable_line.line and self.resizable_line.visible:
             self.resizable_line.onPick(event)
         if artist in self.vmarkers.lines and self.vmarkers.visible:
             self.vmarkers.onPick(event)
         if artist in self.hmarkers.lines and self.hmarkers.visible:
             self.hmarkers.onPick(event)
-
-    def traceActionClicked(self):
-        self.parent.showTrace()
+        
     def onNewTrace(self, x, y, color='black'):
         # add a cross to the graph
         self.trace_crosses.append(self.ax.plot(x, y, 'x', color=color)[0])

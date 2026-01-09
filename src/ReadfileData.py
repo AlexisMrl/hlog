@@ -24,7 +24,7 @@ DATA_DICT_FORMAT = {
             #'hl_logs': {'dev1': 0.1, 'dev2': 0.2},
             #'ph_logs': ['#dev1', '#dev2']
     'config': [],
-    'comments': []
+    'comments': [],
     }
 
 class ReadfileData:
@@ -35,6 +35,7 @@ class ReadfileData:
         self.filepath = filepath
         self.filename = os.path.basename(filepath)
         self.data_dict = data_dict
+        self.plot_dict = None # used to store current plotted (filtered) data
             
     def get_data(self, title, alternate=False, transpose=False):
         # get the data array corresponding to the title

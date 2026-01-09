@@ -1,6 +1,6 @@
-from PyQt5.QtWidgets import QAction
-
+from PyQt5.QtCore import Qt, pyqtSignal
 from PyQt5.QtWidgets import QAction, QToolBar
+from src.ReadfileData import ReadfileData
 
 class MPLToolbar:
     """
@@ -18,17 +18,18 @@ class MPLToolbar:
         self.connectSignals()
 
     def initMainToolbar(self):
+        """ add Trace button, add Trace Window button """
         tb = self.view.toolbar  # NavigationToolbar
         self.view.actionTrace = QAction('Traces', self.view)
         self.view.actionTrace.setCheckable(True)
 
-        self.view.actionPan = tb.actions()[4]  # Qt default toolbar indices
+        self.view.actionPan = tb.actions()[4]
         self.view.actionZoom = tb.actions()[5]
-
+        
         tb.insertAction(tb.actions()[6], self.view.actionTrace)
-
         tb.addSeparator()
-        self.view.trace_action = tb.addAction('Trace window', self.view.traceActionClicked)
+
+        self.view.trace_action = tb.addAction('Trace window', self.view.parent.showTraceWindow)
         self.view.trace_crosses = []
 
     def initSecondaryToolbar(self):
@@ -65,40 +66,26 @@ class MPLToolbar:
         self.view.layout().insertWidget(1, self.secondary_toolbar)  # after main toolbar
 
     def connectSignals(self):
-        pass
         self.view.actionZoom.toggled.connect(lambda boo: self.actionModeChanged(boo, 'ZOOM'))
         self.view.actionPan.toggled.connect(lambda boo: self.actionModeChanged(boo, 'PAN'))
         self.view.actionTrace.toggled.connect(lambda boo: self.actionModeChanged(boo, 'TRACE'))
 
-    def actionModeChanged(self, boo, clicked=''):
-        pass
+    def actionModeChanged(self, checked, clicked=''):
         if self._changing_mode: return
         self._changing_mode = True
+        print(clicked, checked)
         v = self.view
-
         if clicked in ('ZOOM', 'PAN'):
             v.actionTrace.setChecked(False)
             v.setCursor(False)
         elif clicked == 'TRACE':
             if v.actionPan.isChecked(): v.toolbar.pan()
             if v.actionZoom.isChecked(): v.toolbar.zoom()
-            v.setCursor(boo)
-
+            v.setCursor(checked)
         self._changing_mode = False
 
-    def addTraceButton(self):
-        self.view.actionTrace = QAction('Traces', self.view)
-        self.view.actionTrace.setCheckable(True)
-        self.view.actionPan = self.toolbar.actions()[4]
-        self.view.actionZoom = self.toolbar.actions()[5]
 
-        self.toolbar.insertAction(self.toolbar.actions()[6], self.view.actionTrace)
-
-    def addTraceWindowButton(self):
-        self.toolbar.addSeparator()
-        self.view.trace_action = self.toolbar.addAction('Trace window', self.view.traceActionClicked)
-        self.view.trace_crosses = []
-
+    ####
     def addResizableLine(self):
         self.toolbar.addSeparator()
         rl = self.view.resizable_line

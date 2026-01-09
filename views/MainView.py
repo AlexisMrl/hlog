@@ -99,6 +99,10 @@ class MainView(QMainWindow):
         filter_tree = layout.filter_tree
         setting_tree = layout.setting_tree
         graph = layout.graph
+
+        index = self.graphic_tabs.currentIndex()
+        self.graphic_tabs.setTabText(index, name)
+
         return sweep_tree, filter_tree, setting_tree, graph
 
     def closeTab(self, index=None):
@@ -124,16 +128,23 @@ class MainView(QMainWindow):
         
         # Connect signals
         update_this_graph = lambda **kwargs: self.prepare_and_send_plot_dict(rfdata, filter_tree, sweep_tree, graph, **kwargs)
+
         filter_tree.parameters.sigTreeStateChanged.disconnect()
         sweep_tree.parameters.sigTreeStateChanged.disconnect()
-        
+        try:
+            graph.sig_traceAsked.disconnect()
+        except:
+            pass
+        # great code. no time.
+
         filter_tree.parameters.sigTreeStateChanged.connect(update_this_graph)
         sweep_tree.parameters.sigTreeStateChanged.connect(update_this_graph)
-        
+        plotTrace = lambda x, y: self.plotTrace(rfdata, x, y)
+        graph.sig_traceAsked.connect(plotTrace)
+
         
         self.block_update = False
         update_this_graph()
-
 
     def prepare_and_send_plot_dict(self,
         rfdata:ReadfileData, 
@@ -164,7 +175,8 @@ class MainView(QMainWindow):
                 "y_data": y_data,
                 "grid": True
             }
-            graph.plot1D(plot_dict)
+            rfdata.plot_dict = plot_dict # saved for Traces
+            graph.plot1D(rfdata)
 
         elif d["sweep_dim"] == 2:
             out_title = sweep_tree.get_z_title()
@@ -184,56 +196,55 @@ class MainView(QMainWindow):
                 "grid": True,
                 #"z_scale": {False:"linear", True:"log"}[filter_tree.zLogChecked()]
             }
-            graph.plot2D(plot_dict)
+            rfdata.plot_dict = plot_dict # saved for Traces
+            graph.plot2D(rfdata)
 
         self.block_update = False
 
 
-    # TRACE WINDOW
-    def _findIndexOfClosestToTarget(self, target, array):
-        # find the closest point in the array to the target
-        index = np.argmin(np.abs(array - target))
-        return index
-
-    def showTrace(self, click_x=None, click_y=None):
-        # 2 in 1 function
-        # show the trace window if no arguments
-        # if click_x and click_y are not None, display the trace for the clicked position
+    ### TRACE WINDOW
+    def showTraceWindow(self):
         self.trace_window.show()
-        if click_x is None or click_y is None:
-            self.trace_window.raise_()
-            # force the trace window to be on top
-            self.trace_window.activateWindow()
-            return
-        if self.displayed_data is None:
-            return
-        
+        self.trace_window.raise_()
+        self.trace_window.activateWindow()
+    
+    ####
+    def plotTrace(self, rfdata:ReadfileData, click_x, click_y):
+        # if click_x and click_y are not None, also display the trace for the clicked position
+        self.trace_window.show()
         color = self.trace_window.getColor()
 
-        if self.displayed_data['dim'] == 1:
-            x_ax = self.displayed_data['data'][0]
-            x_ax = x_ax[~np.isnan(x_ax)] # remove nans
-            x_index_clicked = self._findIndexOfClosestToTarget(click_x, x_ax)
-            self.trace_window.plotHorizontalTrace(*self.displayed_data['data'])
+        if rfdata.data_dict['sweep_dim'] == 1:
+            x_ax = rfdata.plot_dict["x_data"]
+            y_ax = rfdata.plot_dict["y_data"]
+            self.trace_window.plotHorizontalTrace(x_ax, y_ax, color)
         
-        elif self.displayed_data['dim'] == 2:
+        elif rfdata.data_dict['sweep_dim'] == 2:
+            extent = rfdata.plot_dict["extent"]
+            img = rfdata.plot_dict["img"]
             # gen linspace for x axis from the extent
-            x_start, x_stop, y_start, y_stop = self.displayed_data['data'][1]
+            x_start, x_stop, y_start, y_stop = extent
             x_start, x_stop, y_start, y_stop = min(x_start, x_stop), max(x_start, x_stop), min(y_start, y_stop), max(y_start, y_stop)
-            x_ax = np.linspace(x_start, x_stop, self.displayed_data['data'][0].shape[1])
-            y_ax = np.linspace(y_start, y_stop, self.displayed_data['data'][0].shape[0])
-            x_index_clicked = self._findIndexOfClosestToTarget(click_x, x_ax)
-            y_index_clicked = self._findIndexOfClosestToTarget(click_y, y_ax)
-            self.current_graph().onNewTrace(x_ax[x_index_clicked], y_ax[y_index_clicked], color=color)
-            vert_trace = self.displayed_data['data'][0][:, x_index_clicked]
-            hor_trace = self.displayed_data['data'][0][y_index_clicked]
-            self.trace_window.plotVerticalTrace(y_ax, vert_trace, color)
-            self.trace_window.plotHorizontalTrace(x_ax, hor_trace, color)
+            x_ax = np.linspace(x_start, x_stop, img.shape[1])
+            y_ax = np.linspace(y_start, y_stop, img.shape[0])
+            # get closest point
+            x_index_clicked = indexOfClosestToTarget(click_x, x_ax)
+            y_index_clicked = indexOfClosestToTarget(click_y, y_ax)
+            
+            x_title = rfdata.plot_dict['x_title']
+            y_title = rfdata.plot_dict['y_title']
+            z_title = rfdata.plot_dict['z_title']
+
+            hor_trace = img[y_index_clicked]
+            hor_label = f"{z_title}({x_title}), {y_title}={y_ax[y_index_clicked]:.3g})"
+            vert_trace = img[:, x_index_clicked]
+            vert_label = f"{z_title}({y_title}), {x_title}={x_ax[x_index_clicked]:.3g})"
+
+            self.trace_window.plotVerticalTrace(y_ax, vert_trace, color=color, label=vert_label)
+            self.trace_window.plotHorizontalTrace(x_ax, hor_trace, color=color, label=hor_label)
             
     def clearTraces(self):
         self.trace_window.clear()
-        self.current_graph().clearCrosses()
-        self.current_graph().canvas.draw()
 
     ### DROP
 
@@ -246,3 +257,10 @@ class MainView(QMainWindow):
             self.file_tree.changePath(file_urls[0])
         else:
             self.file_tree.sig_askOpenFile.emit(file_urls[0])
+
+
+
+def indexOfClosestToTarget(target, array):
+    # find the closest point in the array to the target
+    index = np.argmin(np.abs(array - target))
+    return index
