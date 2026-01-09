@@ -73,7 +73,7 @@ class MPLToolbar:
     def actionModeChanged(self, checked, clicked=''):
         if self._changing_mode: return
         self._changing_mode = True
-        print(clicked, checked)
+        #print(clicked, checked)
         v = self.view
         if clicked in ('ZOOM', 'PAN'):
             v.actionTrace.setChecked(False)

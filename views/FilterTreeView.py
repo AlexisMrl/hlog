@@ -49,7 +49,7 @@ class FilterTreeView:
 
 
         def onFilterChange(param, changes): # called when something changes in the filter tree
-            print('filter change:', param, changes)
+            #print('filter change:', param, changes)
             p = self.parameters
             change = changes[0][0]
 

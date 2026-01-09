@@ -115,7 +115,7 @@ class ReadfileData:
         h =  hash_file(filepath)
         metadata = os.stat(filepath)
 
-        ext = filepath.split('.')[1]
+        ext = filepath.split('.')[-1]
         if ext == "txt": # it's a pyHegel file
             data_dict = ph_load(filepath)
         elif ext == "hdf5":

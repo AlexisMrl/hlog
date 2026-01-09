@@ -27,7 +27,7 @@ class ResizableLine():
     def toggleActive(self):
         self.line.set_visible(not self.line.get_visible())
         self.visible = self.line.get_visible()
-        self.parent.canvas.draw()
+        self.parent.canvas.draw_idle()
     
     def onPick(self, event):
         thisline = event.artist
@@ -43,7 +43,7 @@ class ResizableLine():
         else:
             self.active_point = 1
         self.follow_mouse = True
-        self.parent.cursor.visible = False
+        #self.parent.cursor.visible = False
         self.parent.canvas.mpl_connect('motion_notify_event', self.onMotion)
         self.parent.canvas.mpl_connect('button_release_event', self.onRelease)
 
@@ -65,11 +65,11 @@ class ResizableLine():
         # set text
         self.action_button.setText(self.makeText(xdata[0], ydata[0], xdata[1], ydata[1]))
 
-        self.parent.canvas.draw()
+        self.parent.canvas.draw_idle()
     
     def onRelease(self, event):
         self.follow_mouse = False
-        self.parent.cursor.visible = True
+        #self.parent.cursor.visible = True
         self.parent.canvas.mpl_disconnect(self.onMotion)
         self.parent.canvas.mpl_disconnect(self.onRelease)
     
@@ -78,7 +78,7 @@ class ResizableLine():
         dx = x1 - x0
         dy = y1 - y0
         slope = np.inf if dx == 0 else dy / dx
-        return f'Line: slope: {slope:.3g} \n deltaX: {dx:.3g} deltaY: {dy:.3g}'
+        return f'Line: slope: {slope:.3g} \n dx: {dx:.3g} dy: {dy:.3g}'
 
 
 
@@ -118,7 +118,7 @@ class Markers():
         self.line2.set_visible(not self.line2.get_visible())
         self.visible = self.line1.get_visible()
         #print('position:', self.line1.get_xdata(), self.line1.get_ydata())
-        self.parent.canvas.draw()
+        self.parent.canvas.draw_idle()
     
     def onPick(self, event):
         line = event.artist
@@ -128,7 +128,7 @@ class Markers():
         ydata = line.get_ydata()
         # find the point that is closest to the click
         self.follow_mouse = True
-        self.parent.cursor.visible = False
+        #self.parent.cursor.visible = False
         self.parent.canvas.mpl_connect('motion_notify_event', self.onMotion)
         self.parent.canvas.mpl_connect('button_release_event', self.onRelease)
     
@@ -147,15 +147,15 @@ class Markers():
         # set text
         self.action_button.setText(text)
 
-        self.parent.canvas.draw()
+        self.parent.canvas.draw_idle()
     
     def onRelease(self, event):
         self.follow_mouse = False
-        self.parent.cursor.visible = True
+        #self.parent.cursor.visible = True
         self.parent.canvas.mpl_disconnect(self.onMotion)
         self.parent.canvas.mpl_disconnect(self.onRelease)
         
     def makeText(self, coord_l1, coord_l2):
         delta = abs(coord_l1 - coord_l2)
-        label = { 'v': 'VMarks deltaX:', 'h': 'HMarks deltaY:' }
+        label = { 'v': 'Vert. dx:', 'h': 'Horiz. dy:' }
         return f'{label[self.orientation]} {delta:.3g}'

@@ -68,9 +68,17 @@ class MPLView(QWidget):
         self.ax.clear()
         self.canvas.draw()
 
+        self.ax.add_artist(self.vmarkers.line1); self.ax.add_artist(self.vmarkers.line2)
+        self.ax.add_artist(self.hmarkers.line1); self.ax.add_artist(self.hmarkers.line2)
+        self.ax.add_artist(self.resizable_line.line)
+
         if rfdata.data_dict["sweep_dim"] == 1:
+            # adding artists
             plotkw = {'marker': 'o', 'linestyle': '-', 'markersize': 3, 'linewidth': 1}
             self.line = self.ax.plot(0, 0, **plotkw)[0]
+            ##
+
+            #self.ax.add_artist(self.hmarkers)
             self.plot_dict_fns = {
                 "x_title": self.ax.set_xlabel,
                 "y_title": self.ax.set_ylabel,
@@ -89,7 +97,7 @@ class MPLView(QWidget):
                 cmap="viridis"
             )
             self.bar = self.figure.colorbar(self.im, ax=self.ax)
-            
+
             self.plot_dict_fns = {
                 "x_title": self.ax.set_xlabel,
                 "y_title": self.ax.set_ylabel,
@@ -121,6 +129,11 @@ class MPLView(QWidget):
             need_redraw = True
             #print("redraw")
             self.plot_dict_fns["x_or_y_data"](x_data, y_data)
+            # markers
+            self.hmarkers.setPosition(np.nanmin(y_data), np.nanmax(y_data))
+            self.vmarkers.setPosition(np.nanmin(x_data), np.nanmax(x_data))
+            self.resizable_line.setPosition(np.nanmin(x_data), np.nanmin(y_data), np.nanmax(x_data), np.nanmax(y_data))
+
             self.ax.relim()
             self.ax.autoscale_view()
             # For home button:
@@ -139,6 +152,7 @@ class MPLView(QWidget):
                 fn(val)
         
         if need_redraw:
+            self.figure.tight_layout()
             self.canvas.draw_idle()
 
     def plot2D(self, rfdata):
@@ -196,6 +210,10 @@ class MPLView(QWidget):
             # Sync home button:
             self.ax.set_xlim(extent[0], extent[1])
             self.ax.set_ylim(extent[2], extent[3])
+            self.vmarkers.setPosition(extent[0], extent[1])
+            self.hmarkers.setPosition(extent[2], extent[3])
+            self.resizable_line.setPosition(extent[0], extent[2], extent[1], extent[3])
+
             self.toolbar._nav_stack.clear()
             self.toolbar.push_current()
             #
@@ -204,10 +222,11 @@ class MPLView(QWidget):
         for key, val in d.items():
             # if val is different from before, exec the function
             if val != last_d.get(key, None):
-                print(f"new:{key} {val}")
+                #print(f"new:{key} {val}")
                 fn = self.plot_dict_fns.get(key, lambda *args: print("No function defined"))
                 fn(val)
         if need_redraw:
+            self.figure.tight_layout()
             self.canvas.draw_idle()
 
     # HANDLING EVENTS
@@ -222,7 +241,7 @@ class MPLView(QWidget):
     
     def onPick(self, event):
         artist = event.artist
-        print(artist)
+        #print(artist)
         pass
         if artist == self.resizable_line.line and self.resizable_line.visible:
             self.resizable_line.onPick(event)
