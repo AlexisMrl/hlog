@@ -33,11 +33,12 @@ class hlog(QObject):
         # First exec:
         self.main_view.file_tree.changePath(path)
         #self.write(':)')
-        if file: self.open_file(file)
+        if file: self.openFile(file)
 
     def openFile(self, path):
         self.main_view.write('Opening file: '+path)
-
+        print("openFile:")
+        print(self.main_view.file_tree.new_tab_asked)
         # ReadfileData in a thread
         # ReadfileData.from_filepath(path)
         self.loading_thread = QuickThread(ReadfileData.from_filepath, filepath=path)
@@ -52,7 +53,6 @@ class hlog(QObject):
         # called on thread success
         filepath = fn_kwargs.get("filepath")
         self.main_view.write('Opened: '+filepath)
-        self.rfdata = rfdata # DEBUG
         self.sig_fileOpened.emit(rfdata, self.main_view.file_tree.new_tab_asked)
         self.main_view.file_tree.new_tab_asked = False
     

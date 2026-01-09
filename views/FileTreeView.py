@@ -33,6 +33,9 @@ class FileTreeView(QWidget):
         # on item changed
         self.view.selectionModel().currentChanged.connect(self.onItemChanged)
 
+        # drag out
+        self.view.setDragEnabled(True)
+
 
     def makeMenu(self, type):
         menu = QMenu()

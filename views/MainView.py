@@ -248,16 +248,16 @@ class MainView(QMainWindow):
 
     ### DROP
 
-    def dropEvent(self, e):
-        file_urls = [url.toLocalFile() for url in e.mimeData().urls()]
+    def onDrop(self, event, shift):
+        file_urls = [url.toLocalFile() for url in event.mimeData().urls()]
         if len(file_urls) > 1:
             self.write('I\'m sorry but one file at a time please...\n Or you can drop your folder to open it.')
             return
         if os.path.isdir(file_urls[0]):
             self.file_tree.changePath(file_urls[0])
         else:
+            self.file_tree.new_tab_asked = shift
             self.file_tree.sig_askOpenFile.emit(file_urls[0])
-
 
 
 def indexOfClosestToTarget(target, array):
