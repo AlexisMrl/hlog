@@ -65,11 +65,13 @@ class MPLToolbar:
         self.view.layout().insertWidget(1, self.secondary_toolbar)  # after main toolbar
 
     def connectSignals(self):
+        pass
         self.view.actionZoom.toggled.connect(lambda boo: self.actionModeChanged(boo, 'ZOOM'))
         self.view.actionPan.toggled.connect(lambda boo: self.actionModeChanged(boo, 'PAN'))
         self.view.actionTrace.toggled.connect(lambda boo: self.actionModeChanged(boo, 'TRACE'))
 
     def actionModeChanged(self, boo, clicked=''):
+        pass
         if self._changing_mode: return
         self._changing_mode = True
         v = self.view

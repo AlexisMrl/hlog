@@ -39,7 +39,6 @@ class ReadfileData:
     def get_data(self, title, alternate=False, transpose=False):
         # get the data array corresponding to the title
         # search in the out titles and data
-        print(title)
         if title in self.data_dict['out']['titles']:
             i = self.data_dict['out']['titles'].index(title)
             data_cp = self.data_dict['out']['data'][i].copy()

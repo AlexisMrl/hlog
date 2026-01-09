@@ -111,27 +111,27 @@ class MainView(QMainWindow):
         self.statusBar().showMessage(text)
 
     def onFileOpened(self, rfdata, new_tab_asked:bool):
-        if new_tab_asked:
-            sweep_tree, filter_tree, setting_tree, graph = self.newTab(name=rfdata.filename)
-        else:
-            sweep_tree, filter_tree, setting_tree, graph = self.currentTab(name=rfdata.filename)
 
+        fn = {True:self.newTab, False:self.currentTab}[new_tab_asked]
+        sweep_tree, filter_tree, setting_tree, graph = fn(name=rfdata.filename)
 
-        # Tell the views about the new rfdata:
         self.block_update = True
-        
+        # Tell the views about the new rfdata:
         sweep_tree.onNewReadFileData(rfdata)
         filter_tree.onNewReadFileData(rfdata)
+        graph.onNewReadFileData(rfdata)
         #setting_tree.onNewReadFileData(rfdata)
         
         # Connect signals
         update_this_graph = lambda **kwargs: self.prepare_and_send_plot_dict(rfdata, filter_tree, sweep_tree, graph, **kwargs)
+        filter_tree.parameters.sigTreeStateChanged.disconnect()
+        sweep_tree.parameters.sigTreeStateChanged.disconnect()
+        
         filter_tree.parameters.sigTreeStateChanged.connect(update_this_graph)
         sweep_tree.parameters.sigTreeStateChanged.connect(update_this_graph)
         
         
         self.block_update = False
-        graph.init1D()
         update_this_graph()
 
 
@@ -143,43 +143,51 @@ class MainView(QMainWindow):
     ):
         """ Prepare a new `plot_dict` and send to MPLView """
         if self.block_update: return
-        print("hi")
+        self.block_update = True
+
+        #print("updataing")
+
         d = rfdata.data_dict
+        transpose_checked = filter_tree.transposeChecked()
+        x_title, y_title = sweep_tree.get_xy_titles(transpose=transpose_checked)
 
         if d["sweep_dim"] == 1:
-            transpose_checked = filter_tree.transposeChecked()
-            x_title, y_title = sweep_tree.get_xy_titles(transpose=transpose_checked)
 
             x_data = rfdata.get_data(x_title)
             y_data = rfdata.get_data(y_title)
-            y_data, y_title = filter_tree.applyOnData(y_data, y_title)
+            y_data, y_mod_title = filter_tree.applyOnData(y_data, y_title)
 
             plot_dict = {
                 "x_title": x_title,
-                "y_title": y_title,
+                "y_title": y_mod_title,
                 "x_data": rfdata.get_data(x_title),
-                "y_data": rfdata.get_data(y_title),
+                "y_data": y_data,
                 "grid": True
             }
             graph.plot1D(plot_dict)
 
-        elif d["sweep_dim"] == 2: 
+        elif d["sweep_dim"] == 2:
             out_title = sweep_tree.get_z_title()
             alternate = sweep_tree.alternate_checked()
             
             img = rfdata.get_data(out_title, alternate=alternate,
             transpose=transpose_checked)
-            img, out_label = filter_tree.applyOnData(img, out_title)
+            img, out_mod_title = filter_tree.applyOnData(img, out_title)
 
             plot_dict = {
                 "img": img,
                 "x_title": x_title,
                 "y_title": y_title,
-                "z_title": out_label,
+                "z_title": out_mod_title,
                 "cmap": filter_tree.getCmap(),
-                "extent": rfdata.get_extent(transpose=transpose_checked)
+                "extent": rfdata.get_extent(transpose=transpose_checked),
+                "grid": True,
+                #"z_scale": {False:"linear", True:"log"}[filter_tree.zLogChecked()]
             }
             graph.plot2D(plot_dict)
+
+        self.block_update = False
+
 
     # TRACE WINDOW
     def _findIndexOfClosestToTarget(self, target, array):

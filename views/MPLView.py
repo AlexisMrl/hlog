@@ -7,6 +7,7 @@ from matplotlib.figure import Figure
 from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT as NavigationToolbar
 from matplotlib import colors
 
+
 from matplotlib.widgets import Cursor
 from widgets.MPLElements import ResizableLine, Markers
 from widgets.MPLToolbar import MPLToolbar
@@ -38,10 +39,9 @@ class MPLView(QWidget):
         self.line = None # line plot
         self.im = None # image
         self.bar = None # colorbar
-        self.text = None # text
-        self.last_extent = (0,0,0,0)
-        self.last_im_min_max = (0,0,0,0)
-        self.last_im_clim = (0,0)
+
+        self.plot_dict_fns = {} # reference functions to call for updates. Defined in self.onNewReadFileData
+        self.last_plot_dict = {}
 
         # cursor / crosshair
         self.cursor = Cursor(self.ax, useblit=True, color='black', linewidth=1)
@@ -51,71 +51,164 @@ class MPLView(QWidget):
         self.canvas.mpl_connect('pick_event', self.onPick)
         self.canvas.mpl_connect('button_press_event', self.onMouseClick)
 
-        self.last_plot_dict = {}
 
-    def init1D(self):
-        """ make a line for setData later """
-        self.line = self.ax.plot(0, 0)[0]
+    def onNewReadFileData(self, rfdata):
+        if self.bar:
+            self.bar.remove()
+            del self.bar
+            self.bar = None
+        if self.im:
+            self.im.remove()
+            self.im = None
+        if self.line:
+            self.line.remove()
+            self.line = None
+        self.ax.clear()
+        self.canvas.draw()
+
+        if rfdata.data_dict["sweep_dim"] == 1:
+            self.line = self.ax.plot(0, 0)[0]
+            self.plot_dict_fns = {
+                "x_title": self.ax.set_xlabel,
+                "y_title": self.ax.set_ylabel,
+                "x_or_y_data": self.line.set_data,
+                "grid": lambda visible: self.ax.grid(visible=visible)
+            }
+
+            self.last_plot_dict = {}
+            self.figure.tight_layout()
+
+        elif rfdata.data_dict["sweep_dim"] == 2:
+            self.im = self.ax.imshow(
+                np.full((1, 1), np.nan), origin='lower', 
+                aspect='auto', 
+                interpolation='nearest',
+                cmap="viridis"
+            )
+            self.bar = self.figure.colorbar(self.im, ax=self.ax)
+            
+            self.plot_dict_fns = {
+                "x_title": self.ax.set_xlabel,
+                "y_title": self.ax.set_ylabel,
+                "z_title": self.bar.set_label,
+                #"extent": self.im.set_extent,
+                "grid": lambda visible: self.ax.grid(visible=visible, color='#DDDDDD', linestyle='--', linewidth=0.8, alpha=0.3),
+                #"clims": self.bar.set_
+            }
+
+            self.last_plot_dict = {}
+            self.figure.tight_layout()
 
     def plot1D(self, plot_dict):
+        """ go through plot_dict
+        if val is different from self.last_plot_dict:
+            update using the function in self.plot_fns
+        some special cases are treated first, with a pop.
+        """
         d = plot_dict
+        last_d = self.last_plot_dict
+        self.last_plot_dict = d.copy() # SAVE for the future update
 
-        self.plot_fns = {
-            "x_title": self.ax.set_xlabel,
-            "y_title": self.ax.set_ylabel,
-            "x_or_y_data": self.line.set_data,
-            "grid": lambda visible: self.ax.grid(visible=visible)
-        }
-        print(plot_dict)
-
+        need_redraw = False
+        # SPECIAL CASE
         # set_data if x or y data has changed
-        if (not np.array_equal(x_data, self.last_plot_dict.pop("x_data", None))) or \
-            (not np.array_equal(y_data, self.last_plot_dict.pop("y_data", None))):
-            self.plot_fns["x_or_y_data"](x_data, y_data)
+        x_data, y_data = d.pop("x_data"), d.pop("y_data")
+        if (not np.array_equal(x_data, last_d.pop("x_data", None), equal_nan=True)) or \
+            (not np.array_equal(y_data, last_d.pop("y_data", None), equal_nan=True)):
+            need_redraw = True
+            #print("redraw")
+            self.plot_dict_fns["x_or_y_data"](x_data, y_data)
             self.ax.relim()
             self.ax.autoscale_view()
-            self.canvas.draw_idle()
+            # For home button:
+            self.toolbar._nav_stack.clear()
+            self.toolbar.push_current()
+            #
+            self.toolbar.home()
+        
 
+        # OTHER KEYS
         for key, val in plot_dict.items():
             # if val is different from before, exec the function
-            if val != self.last_plot_dict.get(key, None):
-                fn = self.plot_fns[key]
+            if val != last_d.get(key, None):
+                #print(f"new:{key} {val}")
+                fn = self.plot_dict_fns[key]
                 fn(val)
+        
+        if need_redraw:
+            self.canvas.draw_idle()
+        
 
-    def plot1D_old(self,
-            x_data,
-            y_data,
-            grid=False,
-            is_first_time=True,
-            plot_kwargs={},
-        ):
-        # CLEAR
-        self.ax.clear()
-        # PLOT
-        self.ax.set_title(plot_kwargs.pop('title', ''))
-        self.ax.set_xlabel(plot_kwargs.pop('xlabel', ''))
-        self.ax.set_ylabel(plot_kwargs.pop('ylabel', ''))
-        if grid:
-            self.ax.grid()
-        self.line = self.ax.plot(x_data, y_data)[0]
-        # DRAW objects if lims changes
-        self.ax.add_artist(self.resizable_line.line)
-        self.ax.add_artist(self.vmarkers.line1); self.ax.add_artist(self.vmarkers.line2)
-        self.ax.add_artist(self.hmarkers.line1); self.ax.add_artist(self.hmarkers.line2)
-        extent = (np.min(x_data), np.max(x_data), np.min(y_data), np.max(y_data))
-        if extent != self.last_extent:
-            self.resizable_line.setPosition(
-                np.min(x_data), np.min(y_data), 
-                np.max(x_data), np.max(y_data))
-            self.hmarkers.setPosition(np.min(y_data), np.max(y_data))
-            self.vmarkers.setPosition(np.min(x_data), np.max(x_data))
-            self.extent = extent
+    def plot2D(self, plot_dict):
+        """ go through plot_dict
+        if val is different from self.last_plot_dict:
+            update using the function in self.plot_fns
+        some special cases are treated first, with a pop.
+        """
+        d = plot_dict
+        last_d = self.last_plot_dict
+        self.last_plot_dict = d.copy() # SAVE for the future update
 
-        self.canvas.draw_idle()
-        if is_first_time:
-            self.figure.tight_layout()
-    
-    def plot2D(self,
+        # SPECIAL CASES
+        ## CBAR
+        need_redraw = False
+        need_cbar_redraw = False
+        
+        cmap = d.pop("cmap")
+        if cmap != self.bar.mappable.get_cmap().name:
+            need_redraw = True
+            self.im.set_cmap(cmap)
+
+        ## IMG
+        img = d.pop("img")
+        last_img = last_d.pop("img", None)
+        if not np.array_equal(img, last_img, equal_nan=True):
+            need_redraw = True
+            self.im.set_data(img)
+            self.im.autoscale() # Rescale colors
+            # Set scale lims
+            vmin, vmax = np.nanmin(img), np.nanmax(img)
+            self.im.set_norm(colors.Normalize(vmin, vmax))
+            self.bar.update_normal(self.im)
+            self.bar.ax.set_ylim(vmin, vmax)
+            ## update home
+            # save temp image axes view
+            xlim = self.ax.get_xlim()
+            ylim = self.ax.get_ylim()
+            # go to default xlim ylim
+            def_extent = self.im.get_extent()
+            self.ax.set_xlim(def_extent[0], def_extent[1])
+            self.ax.set_ylim(def_extent[2], def_extent[3])
+            # save position as home
+            self.toolbar._nav_stack.clear()
+            self.toolbar.push_current()
+            # restore image axes view
+            self.ax.set_xlim(xlim)
+            self.ax.set_ylim(ylim)
+
+        ## EXTENT
+        extent = d.pop("extent")
+        last_extent = last_d.pop("extent", None)
+        if extent != last_extent:
+            self.im.set_extent(extent)
+            # Sync home button:
+            self.ax.set_xlim(extent[0], extent[1])
+            self.ax.set_ylim(extent[2], extent[3])
+            self.toolbar._nav_stack.clear()
+            self.toolbar.push_current()
+            #
+
+        # OTHER KEYS
+        for key, val in plot_dict.items():
+            # if val is different from before, exec the function
+            if val != last_d.get(key, None):
+                print(f"new:{key} {val}")
+                fn = self.plot_dict_fns.get(key, lambda *args: print("No function defined"))
+                fn(val)
+        if need_redraw:
+            self.canvas.draw_idle()
+
+    def plot2D_old(self,
         image_data,
         extent,
         grid=False,
@@ -204,23 +297,6 @@ class MPLView(QWidget):
         self.trace_crosses = []
     # END OF HANDLING EVENTS
     
-
-    def remove_graph_elements(self):
-        if self.bar:
-            self.bar.remove()
-            self.bar = None
-        if self.im:
-            self.im.remove()
-            self.im = None
-        if self.line:
-            self.line.remove()
-            self.line = None
-        self.ax.clear()
-
-    def write(self, text):
-        self.remove_graph_elements()
-        self.text = self.ax.text(0.5, 0.5, text, ha="center", va="center", fontsize=12, color="gray")
-        self.canvas.draw()
 
 def set_1d_ax_lim(ax, x_data, y_data, padding_factor=0.05):
     x_padding = padding_factor*(np.nanmax(x_data)-np.nanmin(x_data))

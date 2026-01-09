@@ -51,7 +51,7 @@ class hlog(QObject):
     def onFileOpened(self, rfdata, fn_args, fn_kwargs):
         # called on thread success
         filepath = fn_kwargs.get("filepath")
-        self.main_view.write('Successfully opened: '+filepath)
+        self.main_view.write('Opened: '+filepath)
         self.rfdata = rfdata # DEBUG
         self.sig_fileOpened.emit(rfdata, self.main_view.file_tree.new_tab_asked)
         self.main_view.file_tree.new_tab_asked = False

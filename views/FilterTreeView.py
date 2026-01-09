@@ -47,38 +47,11 @@ class FilterTreeView:
 
         self.displayed_dim = 0
 
-        self.need_set_data = True
-        self.need_new_ax_lims = True
-        self.need_new_cb_lims = True
 
         def onFilterChange(param, changes): # called when something changes in the filter tree
             print('filter change:', param, changes)
-            #print(f"{self.need_update_cb=}")
             p = self.parameters
             change = changes[0][0]
-            dim = self.displayed_dim
-
-            if change == p.param('Filter', 'Transpose'):
-                self.need_new_ax_lims = True
-                self.need_new_cb_lims = False
-            
-            elif change in (
-                p.param('Filter', 'Type'),
-                p.param('Filter', 'Sigma'),
-                p.param('Filter', 'Order'),
-                p.param('2d sweep', 'z log')
-            ):
-                if dim == 1:
-                    self.need_new_ax_lims = True
-                if dim == 2:
-                    self.need_new_ax_lims = False
-                    self.need_new_cb_lims = True
-
-            elif change in (
-                p.param('2d sweep', 'cmap')
-            ):
-                self.need_new_ax_lims = False
-                self.need_new_cb_lims = False
 
                         
         self.parameters.sigTreeStateChanged.connect(onFilterChange)
@@ -126,6 +99,10 @@ class FilterTreeView:
     def transposeChecked(self):
         p = self.parameters
         return p.param('Filter', 'Transpose').value()
+    
+    def zLogChecked(self):
+        p = self.parameters
+        return p.param('2d sweep', 'z log').value()
     
     def getCmap(self):
         return self.parameters.param('2d sweep', 'cmap').value()
