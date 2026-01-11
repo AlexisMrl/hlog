@@ -4,6 +4,7 @@ import pyqtgraph as pg
 
 children = [
     {'name': 'Sweep', 'type': 'group', 'children': [
+        {'name': 'time', 'type': 'str', 'value': ''},
         {'name': 'dev1', 'type': 'group', 'children': []},
         {'name': 'dev2', 'type': 'group', 'children': []},
         {'name': 'is_alternate', 'type': 'bool', 'value': False},
@@ -56,6 +57,10 @@ class SweepTreeView:
         p.param('Out').clearChildren()
         p.param('Sweep').clearChildren()
         
+        time_taken:str = rfdata.get_time_taken()
+        if time_taken != '':
+            p.param('Sweep').addChild({'name': 'time', 'type': 'str', 'value': time_taken})
+
         data_dict = rfdata.data_dict
         out_titles = data_dict['out']['titles']
         
@@ -89,8 +94,6 @@ class SweepTreeView:
 
             is_alternate = {'name': 'is_alternate', 'type': 'bool', 'value': data_dict['alternate']}
             p.param('Sweep').addChildren([is_alternate])
-
-
 
         # logs
         p.param('Header', 'config').setValue(str(data_dict['config']))

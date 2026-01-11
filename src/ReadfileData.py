@@ -25,6 +25,7 @@ DATA_DICT_FORMAT = {
             #'ph_logs': ['#dev1', '#dev2']
     'config': [],
     'comments': [],
+    'sweep_time': None # epoch [beginning, end]
     }
 
 class ReadfileData:
@@ -79,7 +80,14 @@ class ReadfileData:
         if any([np.isnan(e) for e in extent]):
                 extent = None
         return extent
-
+    
+    def get_time_taken(self) -> str:
+        sweep_time = self.data_dict["sweep_time"]
+        if sweep_time is None:
+            return ""
+        if np.isnan(sweep_time).any():
+            return ""
+        return c.util.format_time(sweep_time[1] - sweep_time[0])
 
     # -- POLAR/CARTESIAN CONVERSION --
     def clearComputedData(self):
@@ -124,7 +132,7 @@ class ReadfileData:
         # Get load_function, fallback to pyHegel
         load_function = {"txt": ph_load, "hdf5": h5_load}.get(ext, ph_load)
         data_dict = load_function(filepath)
-
+        
         return ReadfileData(
             filepath,
             metadata=metadata,
@@ -154,7 +162,7 @@ def ph_load(filepath) -> dict:
     config, comment = ph_findConfigAndComments(headers)
     data_dict['config'] = config
     data_dict['comments'] = comment
-
+    
     return data_dict
 
 def ph_build1DDataDict(data, titles, header, data_dict):
@@ -171,6 +179,9 @@ def ph_build1DDataDict(data, titles, header, data_dict):
         data_dict['out']['titles'].append(title)
         out_data = data[i][::-1] if rev_data else data[i]
         data_dict['out']['data'].append(out_data)
+    
+    time_data = data_dict['out']['data'][-1]
+    data_dict['sweep_time'] = [np.nanmin(time_data), np.nanmax(time_data)]
 
 def ph_detectXYIndex(titles):
     # manually detect if the first two columns are actually the same value:
@@ -204,6 +215,9 @@ def ph_build2DDataDict(data, titles, headers, data_dict):
         out_data = out_data[:,::-1] if rev_y else out_data
         #print(rev_x, rev_y)
         data_dict['out']['data'].append(out_data)
+
+    time_data = data_dict['out']['data'][-1]
+    data_dict['sweep_time'] = [np.nanmin(time_data), np.nanmax(time_data)]
 
 def ph_findSweepRange2D(data, headers, data_dict):
     # try to find the ranges of the 2d sweep
@@ -342,3 +356,8 @@ def hash_file(filepath: str) -> str:
         for chunk in iter(lambda: f.read(8192), b""):
             h.update(chunk)
     return h.hexdigest()
+
+def last_not_nan(arr):
+    arr = np.asarray(arr)
+    valid = arr[~np.isnan(arr)]
+    return valid[-1] if valid.size else None
