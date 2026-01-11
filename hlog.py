@@ -9,6 +9,7 @@ from views.MainView import MainView
 from src.ReadfileData import ReadfileData
 from src.QuickThread import QuickThread
 from src.Popup import Popup
+from src.Database import DBPlots
 
 class hlog(QObject):
 
@@ -18,6 +19,10 @@ class hlog(QObject):
         super().__init__()
         self.app = app
 
+        project_dir = os.path.dirname(os.path.abspath(__file__))
+        db_path = os.path.join(project_dir, "plots.db")
+        self.db = DBPlots(db_path)
+        
         self.main_view = mv = MainView(self)
         self.pop = Popup()
         
@@ -73,9 +78,9 @@ if __name__ == '__main__':
     path, file = os.getcwd(), None
 
     if '--with-app' in sys.argv:
-        app = QApplication([])
         QApplication.setAttribute(Qt.AA_EnableHighDpiScaling, True)
         QApplication.setAttribute(Qt.AA_UseHighDpiPixmaps, True)
+        app = QApplication([])
         app.setApplicationName('hlog')
         sys.argv.remove('--with-app')
     
@@ -87,16 +92,18 @@ if __name__ == '__main__':
             path = os.path.dirname(file)
 
     pixmap = QPixmap('./resources/icon.png')
-    pixmap = pixmap.scaledToWidth(200, mode=Qt.SmoothTransformation)
+    #pixmap = pixmap.scaledToWidth(200, mode=Qt.SmoothTransformation)
     splash = QSplashScreen(pixmap)
     splash.setWindowFlags(Qt.WindowStaysOnTopHint | Qt.FramelessWindowHint)
     msg = 'Loading...' + '\n' + path
     splash.showMessage(msg, alignment=Qt.AlignBottom | Qt.AlignHCenter, color=Qt.white)
-    splash.show()
+    #splash.show()
 
     hl = hlog(path, app, file=file)
-    splash.finish(hl.main_view)
+    #splash.finish(hl.main_view)
     hl.main_view.show()
+    hl.main_view.write("hi")
+
 
     if app is not None:
         sys.exit(app.exec_())

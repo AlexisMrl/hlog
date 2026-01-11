@@ -125,7 +125,14 @@ class FileTreeView(QWidget):
         type = 'file' if not self.model.isDir(index) else 'dir'
         if type == "file":
             path = self.model.filePath(current)
-            pass
+            #self.model.preview_widget.show
+            png = self.main_view.hlog.db.get_fig(path)
+            if png:
+                self.main_view.preview_widget.showPng(png)
+            else:
+                self.main_view.preview_widget.clear()
+        elif type == "dir":
+            self.main_view.preview_widget.clear()
     
     def onDoubleClick(self):
         if QApplication.keyboardModifiers() & Qt.ShiftModifier:

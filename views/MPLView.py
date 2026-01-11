@@ -22,7 +22,7 @@ class MPLView(QWidget):
 
         self.waiting_for_update = False
 
-        self.figure = Figure()
+        self.figure = Figure(figsize=(5,10))
         self.ax = self.figure.add_subplot(111)
         self.ax.autoscale(enable=True)
         self.canvas = FigureCanvas(self.figure)

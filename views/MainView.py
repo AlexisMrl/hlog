@@ -11,6 +11,7 @@ from views.SweepTreeView import SweepTreeView
 from views.FileTreeView import FileTreeView
 
 from widgets.CustomQWidgets import CustomTabWidget
+from widgets.PreviewWidget import PreviewWidget
 
 from src.ReadfileData import ReadfileData
 
@@ -42,9 +43,14 @@ class MainView(QMainWindow):
         self.graphic_tabs = CustomTabWidget(self)
         self.graphic_tabs.tabCloseRequested.connect(self.closeTab)
 
+        self.file_preview_splitter = QSplitter(2)
+        self.preview_widget = PreviewWidget(parent=self.file_preview_splitter)
+        self.file_preview_splitter.addWidget(self.file_tree.view)
+        self.file_preview_splitter.addWidget(self.preview_widget)
+
         # Splitter: (FILES, TABS)
         self.v_splitter = QSplitter()
-        self.v_splitter.addWidget(self.file_tree.view)
+        self.v_splitter.addWidget(self.file_preview_splitter)
         self.v_splitter.addWidget(self.graphic_tabs)
         self.setCentralWidget(self.v_splitter)
         self.v_splitter.setSizes([300, 500])
@@ -155,8 +161,6 @@ class MainView(QMainWindow):
         if self.block_update: return
         self.block_update = True
 
-        #print("updataing")
-
         d = rfdata.data_dict
         transpose_checked = filter_tree.transposeChecked()
         x_title, y_title = sweep_tree.get_xy_titles(transpose=transpose_checked)
@@ -208,6 +212,8 @@ class MainView(QMainWindow):
                     rfdata, filter_tree, sweep_tree, graph
                 )
             )
+        
+        self.hlog.db.add_fig(rfdata, graph.figure)
 
     def _delayed_update(self, rfdata, filter_tree, sweep_tree, graph):
         graph.waiting_for_update = False
