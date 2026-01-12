@@ -21,10 +21,3 @@ Application pyqt pour visualiser les données pyHegel et hdf5.
 
 `widgets/`:
   - Fichiers définissant des objets à utiliser dans les vues
-
-
-
-# À faire:
-- afficher durée du sweep
-- mise à jour automatique pendant le sweep
-- disctinction de cas pour retraçage de graph
