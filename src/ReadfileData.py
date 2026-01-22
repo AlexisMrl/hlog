@@ -275,7 +275,7 @@ def ph_findBeforeWait(headers):
 
 def h5_load(filepath) -> dict:
     data_dict = DATA_DICT_FORMAT.copy()
-    with h5py.File(filepath, "r") as file:
+    with h5py.File(filepath, "r", swmr=True) as file:
         data, meta = file.get("data"), file.get("meta")
         if meta.attrs.get("VERSION") != 0.1: 
             raise NotImplementedError(f"VERSION not supported :)")
