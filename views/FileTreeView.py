@@ -98,6 +98,8 @@ class FileTreeView(QWidget):
                 self.view.keyPressEvent(QKeyEvent(QEvent.KeyPress, Qt.Key_End, Qt.NoModifier))
             else:
                 self.view.keyPressEvent(QKeyEvent(QEvent.KeyPress, Qt.Key_Home, Qt.NoModifier))
+        elif key == Qt.Key_Y:
+            self.copyPath()
 
         elif key == Qt.Key_W:
             if modifiers & Qt.ControlModifier:
