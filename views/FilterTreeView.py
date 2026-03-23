@@ -4,6 +4,7 @@ import pyqtgraph as pg
 
 from scipy.ndimage import gaussian_filter1d, gaussian_filter
 import numpy as np
+from src.ReadfileData import ReadfileData
 
 
 d1_filters = ['No filter', 'dy/dx']  # filters possible for 1d data
@@ -25,6 +26,10 @@ children = [
         #{'name': 'Deinterlace', 'type': 'bool', 'value': False},
         
     ]},
+    {'name': 'Plot', 'type': 'group', 'children': [
+        {'name': 'bins', 'type': 'int', 'value': 101},
+        {'name': 'histogram flatten', 'type': 'action'},
+    ]},
     #{'name': '1d sweep', 'type': 'group', 'children': [
     #    {'name': 'x log', 'type': 'bool', 'value': False},
     #    {'name': 'y log', 'type': 'bool', 'value': False},
@@ -39,9 +44,9 @@ children = [
 ]
 class FilterTreeView:
     
-    def __init__(self):
+    def __init__(self, fn_new_computed_rfdata=lambda rfdata: 0):
         super().__init__()
-
+        self.fn_new_computed_rfdata = fn_new_computed_rfdata
         self.parameters = pg.parametertree.Parameter.create(name='filters', type='group', children=children)
         self.tree = pg.parametertree.ParameterTree(showHeader=False)
         self.tree.setParameters(self.parameters, showTop=False)
@@ -53,6 +58,7 @@ class FilterTreeView:
             #print('filter change:', param, changes)
             p = self.parameters
             change = changes[0][0]
+            # print(changes)
 
                         
         self.parameters.sigTreeStateChanged.connect(onFilterChange)
@@ -82,6 +88,7 @@ class FilterTreeView:
             p.param('2d sweep').show()
             self.displayed_dim = 2
 
+        p.param('Plot', 'histogram flatten').sigActivated.connect(lambda: self.makeHistogramFlatten(rfdata))
         p.param("auto update").setValue(False)
         
         # Polar/Cartesian
@@ -126,8 +133,30 @@ class FilterTreeView:
                 data_label = f"log {data_label}"
 
         new_label = f"{filt} {data_label}" if filt!= "No filter" else data_label
-        return fn(data, sigma, order), new_label
+        new_data = fn(data, sigma, order)
+        self.last_data_and_label = new_data, new_label
+        return new_data, new_label
 
+
+    def makeHistogramFlatten(self, rfdata_reference):
+        plot_dict = rfdata_reference.plot_dict
+
+        bins = self.parameters.param('Plot', 'bins').value()
+        if self.displayed_dim == 1:
+            arr = plot_dict.get("y_data")
+        elif self.displayed_dim == 2:
+            print(plot_dict)
+            arr = plot_dict.get("img")
+            arr = arr[~np.isnan(arr)]
+        hist, bins = np.histogram(arr.flatten(), bins=bins)
+        bins_c = (bins[:-1] + bins[1:]) / 2
+        bins_c_title = plot_dict.get("y_title")+" bins"
+        rfdata = ReadfileData.from_computed_array_1d(
+            out_datas = [bins_c, hist],
+            out_titles = [bins_c_title, "count"],
+            rfdata_original=rfdata_reference
+        )
+        self.fn_new_computed_rfdata(rfdata)
 
 
 def filter_fn(str_arg):

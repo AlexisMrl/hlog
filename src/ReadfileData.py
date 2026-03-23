@@ -18,7 +18,7 @@ DATA_DICT_FORMAT = {
         'titles': ['out1', 'out2'],
         'data': [np.random.rand(11,6), np.random.rand(11,6)]
     },
-    'computed_out': {'titles': [], 'data': []}, # for computed data (r, deg, x, y)
+    # 'computed_out': {'titles': [], 'data': []}, # for computed data (r, deg, x, y)
     'alternate': False,
     'beforewait': True,
     'sweep_dim': 2,
@@ -28,6 +28,23 @@ DATA_DICT_FORMAT = {
     'comments': [],
     'sweep_time': None # epoch [beginning, end]
     }
+
+PLOT_DICT_1D_FORMAT = {
+    "x_title": "",
+    "y_title": "",
+    "x_data": [0],
+    "y_data": [0],
+    "grid": True,
+}
+PLOT_DICT_2D_FORMAT = {
+    "img": np.array([[0], [0]]),
+    "x_title": "",
+    "y_title": "",
+    "z_title": "",
+    "cmap": "obj",
+    "extent": [0, 1, 0, 1],
+    "grid": True,
+}
 
 class ReadfileData:
 
@@ -142,6 +159,31 @@ class ReadfileData:
             data_dict=data_dict,
             reload_function = load_function
         )
+
+    @staticmethod
+    def from_computed_array_1d(out_datas, out_titles, rfdata_original):
+        assert len(out_datas) >=2
+        assert len(out_datas) == len(out_titles)
+
+        rfdata = deepcopy(rfdata_original)
+        data_dict = rfdata.data_dict
+        data_dict['sweep_dim'] = 1
+
+        data_dict['x']['data'] = out_datas[0]
+        data_dict['x']['title'] = out_titles[0]
+        data_dict['x']['range'] = findSweepRange1D(out_datas[0])
+        data_dict['out']['titles'] = []
+        data_dict['out']['data'] = []
+        for title, data in zip(out_titles, out_datas):
+            data_dict['out']['titles'].append(title)
+            data_dict['out']['data'].append(data)
+
+        return rfdata
+
+    @staticmethod
+    def from_2d_computed_array(out_datas, out_titles, rfdata_original):
+        pass
+        return rfdata
 
 def ph_load(filepath) -> dict:
     data_dict = deepcopy(DATA_DICT_FORMAT)

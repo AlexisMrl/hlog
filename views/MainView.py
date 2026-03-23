@@ -14,9 +14,11 @@ from widgets.CustomQWidgets import CustomTabWidget
 from widgets.PreviewWidget import PreviewWidget
 
 from src.ReadfileData import ReadfileData
+from src.ReadfileData import PLOT_DICT_1D_FORMAT, PLOT_DICT_2D_FORMAT
 
 import numpy as np
 import os
+from copy import deepcopy
 
 
 class MainView(QMainWindow):
@@ -65,7 +67,7 @@ class MainView(QMainWindow):
         graph = MPLView(self)
         # --
         sweep_tree = SweepTreeView()
-        filter_tree = FilterTreeView()
+        filter_tree = FilterTreeView(fn_new_computed_rfdata = lambda rfdata: self.onFileOpened(rfdata, new_tab_asked=True, add_to_db=False))
         setting_tree = SettingTreeView()
         # bottom (sweep, [analyse, graph settings])
         # setting_tabs = QTabWidget()
@@ -117,7 +119,7 @@ class MainView(QMainWindow):
         print(text)
         self.statusBar().showMessage(text)
 
-    def onFileOpened(self, rfdata, new_tab_asked:bool):
+    def onFileOpened(self, rfdata, new_tab_asked:bool, add_to_db=True):
 
         get_layout = {True:self.newTab, False:self.currentTab}[new_tab_asked]
         # sweep_tree, filter_tree, setting_tree, graph = get_layout(name=rfdata.filename)
@@ -152,7 +154,8 @@ class MainView(QMainWindow):
         self.block_update = False
         layout.update_fn()
         
-        self.hlog.db.add_fig(rfdata, graph.figure)
+        if add_to_db:
+            self.hlog.db.add_fig(rfdata, graph.figure)
 
     def prepare_and_send_plot_dict(self,
         rfdata:ReadfileData,
@@ -175,14 +178,14 @@ class MainView(QMainWindow):
             x_data = rfdata.get_data(x_title)
             y_data = rfdata.get_data(y_title)
             y_data, y_mod_title = filter_tree.applyOnData(y_data, y_title)
-
-            plot_dict = {
+            plot_dict = deepcopy(PLOT_DICT_1D_FORMAT)
+            plot_dict.update({
                 "x_title": x_title,
                 "y_title": y_mod_title,
                 "x_data": rfdata.get_data(x_title),
                 "y_data": y_data,
                 "grid": True
-            }
+            })
             rfdata.plot_dict = plot_dict # saved for Traces
             graph.plot1D(rfdata)
 
@@ -194,7 +197,8 @@ class MainView(QMainWindow):
             transpose=transpose_checked)
             img, out_mod_title = filter_tree.applyOnData(img, out_title)
 
-            plot_dict = {
+            plot_dict = deepcopy(PLOT_DICT_2D_FORMAT)
+            plot_dict.update({
                 "img": img,
                 "x_title": x_title,
                 "y_title": y_title,
@@ -203,7 +207,8 @@ class MainView(QMainWindow):
                 "extent": rfdata.get_extent(transpose=transpose_checked),
                 "grid": True,
                 #"z_scale": {False:"linear", True:"log"}[filter_tree.zLogChecked()]
-            }
+            })
+            print(img.dtype)
             rfdata.plot_dict = plot_dict # saved for Traces
             graph.plot2D(rfdata)
 
