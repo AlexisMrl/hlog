@@ -1,15 +1,16 @@
-import sys, os
 import numpy as np
-from PyQt5.QtWidgets import QWidget, QVBoxLayout, QAction, QToolBar
-from PyQt5.QtCore import Qt, pyqtSignal
-from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
+from PyQt5.QtWidgets import QWidget, QVBoxLayout
+from PyQt5.QtCore import pyqtSignal
+from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
+
 from PyQt5.Qt import QTimer
 from matplotlib.figure import Figure
-from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT as NavigationToolbar
+from matplotlib.backends.backend_qt import NavigationToolbar2QT as NavigationToolbar
 from matplotlib import colors
 
 
 from matplotlib.widgets import Cursor
+
 from widgets.MPLElements import ResizableLine, Markers
 from widgets.MPLToolbar import MPLToolbar
 

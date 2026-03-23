@@ -188,6 +188,7 @@ class FileTreeView(QWidget):
         index = self.view.currentIndex()
         path = self.model.filePath(index)
         self.clipboard.setText(path)
+        self.main_view.write('Copied: '+ path)
     
     def refresh(self):
         path = self.model.filePath(self.view.rootIndex())

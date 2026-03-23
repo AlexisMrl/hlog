@@ -2,6 +2,7 @@ import pyHegel.commands as c
 import os, sys, hashlib
 import h5py
 import numpy as np
+from copy import copy, deepcopy
 
 DATA_DICT_FORMAT = {
     'x': {
@@ -48,24 +49,25 @@ class ReadfileData:
         # search in the out titles and data
         if title in self.data_dict['out']['titles']:
             i = self.data_dict['out']['titles'].index(title)
-            data_cp = self.data_dict['out']['data'][i].copy()
+            data_cp_shallow = copy(self.data_dict['out']['data'][i])
         # search in the computed_out titles and data
         #elif title in self.data_dict['computed_out']['titles']:
         #    i = self.data_dict['computed_out']['titles'].index(title)
-        #    data_cp = self.data_dict['computed_out']['data'][i].copy()
+        #    data_cp = deepcopy(self.data_dict['computed_out']['data'][i])
         else:
+            print("error on get_data ", self.data_dict['out']['titles'])
             raise KeyError()
         if self.data_dict['sweep_dim'] == 1:
-            return data_cp
+            return data_cp_shallow
         if self.data_dict['sweep_dim'] == 2:
             # alternate data if needed
             if alternate:
                 # flip odd rows
-                data_cp[1::2] = data_cp[1::2, ::-1]
+                data_cp_shallow[1::2] = data_cp_shallow[1::2, ::-1]
             if transpose:
-                data_cp = data_cp.T
+                data_cp_shallow = data_cp_shallow.T
             # transpose by default
-            return data_cp.T
+            return data_cp_shallow.T
     
     def get_extent(self, transpose=False):
         x_start, x_stop, x_nbpts, x_step = self.data_dict['x']['range']
@@ -142,7 +144,7 @@ class ReadfileData:
         )
 
 def ph_load(filepath) -> dict:
-    data_dict = DATA_DICT_FORMAT.copy()
+    data_dict = deepcopy(DATA_DICT_FORMAT)
     try:
         data, titles, headers = c.readfile(filepath, getheaders=True, multi_sweep='force')
     except:
@@ -274,7 +276,7 @@ def ph_findBeforeWait(headers):
     return beforewait
 
 def h5_load(filepath) -> dict:
-    data_dict = DATA_DICT_FORMAT.copy()
+    data_dict = deepcopy(DATA_DICT_FORMAT)
     with h5py.File(filepath, "r", swmr=True) as file:
         data, meta = file.get("data"), file.get("meta")
         if meta.attrs.get("VERSION") not in (0.1, "0.1"): 

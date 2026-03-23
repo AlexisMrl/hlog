@@ -1,6 +1,6 @@
-from PyQt5.QtWidgets import QMainWindow, QVBoxLayout, QSplitter, QWidget, QTabWidget, QTabBar
-from PyQt5.QtWidgets import QToolBar, QAction, QMenu
-from PyQt5.QtCore import Qt, pyqtSignal, QTimer
+from PyQt5.QtGui import QIcon
+from PyQt5.QtWidgets import QMainWindow, QSplitter, QTabWidget
+from PyQt5.QtCore import Qt
 import pyqtgraph as pg
 
 from views.MPLView import MPLView
@@ -29,7 +29,7 @@ class MainView(QMainWindow):
         self.hlog = hlog
         self.setWindowTitle('hlog')
         self.resize(1000, 600)
-        icon = pg.QtGui.QIcon('./resources/icon.png')
+        icon = QIcon('./resources/icon.png')
         self.setWindowIcon(icon)
         
         self.block_update = False
@@ -43,7 +43,7 @@ class MainView(QMainWindow):
         self.graphic_tabs = CustomTabWidget(self)
         self.graphic_tabs.tabCloseRequested.connect(self.closeTab)
 
-        self.file_preview_splitter = QSplitter(2)
+        self.file_preview_splitter = QSplitter(Qt.Orientation.Vertical)
         self.preview_widget = PreviewWidget(parent=self.file_preview_splitter)
         self.file_preview_splitter.addWidget(self.file_tree.view)
         self.file_preview_splitter.addWidget(self.preview_widget)
@@ -68,17 +68,18 @@ class MainView(QMainWindow):
         filter_tree = FilterTreeView()
         setting_tree = SettingTreeView()
         # bottom (sweep, [analyse, graph settings])
-        setting_tabs = QTabWidget()
-        setting_tabs.addTab(filter_tree.tree, 'Analyse')
+        # setting_tabs = QTabWidget()
+        # setting_tabs.addTab(filter_tree.tree, 'Analyse')
         #setting_tabs.addTab(setting_tree.tree, 'Graph')
 
         bottom_splitter = QSplitter()
         bottom_splitter.addWidget(sweep_tree.tree)
-        bottom_splitter.addWidget(setting_tabs)
+        bottom_splitter.addWidget(filter_tree.tree)
+        # bottom_splitter.addWidget(setting_tabs)
         bottom_splitter.setSizes([200, 1])
 
         # main splitter
-        layout = QSplitter(2)
+        layout = QSplitter(Qt.Orientation.Vertical)
         layout.addWidget(graph)
         layout.addWidget(bottom_splitter)
         layout.setSizes([250, 100])
@@ -93,22 +94,19 @@ class MainView(QMainWindow):
         self.graphic_tabs.addTab(layout, name)
         self.graphic_tabs.setCurrentWidget(layout)
 
-        return sweep_tree, filter_tree, setting_tree, graph
+        # return sweep_tree, filter_tree, setting_tree, graph
+        return layout
 
     def currentTab(self, name):
         layout = self.graphic_tabs.currentWidget()
         if not layout:
             return self.newTab(name)
 
-        sweep_tree  = layout.sweep_tree
-        filter_tree = layout.filter_tree
-        setting_tree = layout.setting_tree
-        graph = layout.graph
-
         index = self.graphic_tabs.currentIndex()
         self.graphic_tabs.setTabText(index, name)
 
-        return sweep_tree, filter_tree, setting_tree, graph
+        # return sweep_tree, filter_tree, setting_tree, graph
+        return layout
 
     def closeTab(self, index=None):
         if not index:
@@ -121,8 +119,12 @@ class MainView(QMainWindow):
 
     def onFileOpened(self, rfdata, new_tab_asked:bool):
 
-        fn = {True:self.newTab, False:self.currentTab}[new_tab_asked]
-        sweep_tree, filter_tree, setting_tree, graph = fn(name=rfdata.filename)
+        get_layout = {True:self.newTab, False:self.currentTab}[new_tab_asked]
+        # sweep_tree, filter_tree, setting_tree, graph = get_layout(name=rfdata.filename)
+        layout = get_layout(name=rfdata.filename)
+        sweep_tree  = layout.sweep_tree
+        filter_tree = layout.filter_tree
+        graph = layout.graph
 
         self.block_update = True
         # Tell the views about the new rfdata:
@@ -132,36 +134,37 @@ class MainView(QMainWindow):
         #setting_tree.onNewReadFileData(rfdata)
         
         # Connect signals
-        update_this_graph = lambda **kwargs: self.prepare_and_send_plot_dict(rfdata, filter_tree, sweep_tree, graph, **kwargs)
+        layout.update_fn = lambda: self.prepare_and_send_plot_dict(rfdata, layout)
 
         filter_tree.parameters.sigTreeStateChanged.disconnect()
         sweep_tree.parameters.sigTreeStateChanged.disconnect()
         try:
             graph.sig_traceAsked.disconnect()
-        except:
+        except TypeError:
+            # TypeError: disconnect() failed between 'sig_traceAsked' and all its connections
             pass
-        # great code. no time.
 
-        filter_tree.parameters.sigTreeStateChanged.connect(update_this_graph)
-        sweep_tree.parameters.sigTreeStateChanged.connect(update_this_graph)
+        filter_tree.parameters.sigTreeStateChanged.connect(layout.update_fn)
+        sweep_tree.parameters.sigTreeStateChanged.connect(layout.update_fn)
         plotTrace = lambda x, y: self.plotTrace(rfdata, x, y)
         graph.sig_traceAsked.connect(plotTrace)
-
         
         self.block_update = False
-        update_this_graph()
+        layout.update_fn()
         
         self.hlog.db.add_fig(rfdata, graph.figure)
 
     def prepare_and_send_plot_dict(self,
-        rfdata:ReadfileData, 
-        filter_tree:FilterTreeView, 
-        sweep_tree:SweepTreeView, 
-        graph:MPLView,
+        rfdata:ReadfileData,
+        layout,
     ):
         """ Prepare a new `plot_dict` and send to MPLView """
         if self.block_update: return
         self.block_update = True
+        
+        sweep_tree  = layout.sweep_tree
+        filter_tree = layout.filter_tree
+        graph = layout.graph
         
         d = rfdata.data_dict
         transpose_checked = filter_tree.transposeChecked()
