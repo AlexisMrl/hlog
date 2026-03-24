@@ -4,6 +4,7 @@ import pyqtgraph as pg
 
 from scipy.ndimage import gaussian_filter1d, gaussian_filter
 import numpy as np
+from src.ReadfileData import ReadfileData
 
 
 d1_filters = ['No filter', 'dy/dx']  # filters possible for 1d data
@@ -25,6 +26,14 @@ children = [
         #{'name': 'Deinterlace', 'type': 'bool', 'value': False},
         
     ]},
+    {'name': 'Plot 1d', 'type': 'group', 'children': [
+        {'name': 'bins', 'type': 'int', 'value': 101},
+        {'name': 'histogram flatten', 'type': 'action'},
+    ]},
+    {'name': 'Plot 2d', 'type': 'group', 'children': [
+        {'name': 'bins', 'type': 'int', 'value': 101},
+        {'name': 'histogram lbl', 'type': 'action'},
+    ]},
     #{'name': '1d sweep', 'type': 'group', 'children': [
     #    {'name': 'x log', 'type': 'bool', 'value': False},
     #    {'name': 'y log', 'type': 'bool', 'value': False},
@@ -39,9 +48,9 @@ children = [
 ]
 class FilterTreeView:
     
-    def __init__(self):
+    def __init__(self, fn_new_computed_rfdata = lambda rfdata: print("no function connected")):
         super().__init__()
-
+        self.fn_new_computed_rfdata = fn_new_computed_rfdata
         self.parameters = pg.parametertree.Parameter.create(name='filters', type='group', children=children)
         self.tree = pg.parametertree.ParameterTree(showHeader=False)
         self.tree.setParameters(self.parameters, showTop=False)
@@ -53,6 +62,7 @@ class FilterTreeView:
             #print('filter change:', param, changes)
             p = self.parameters
             change = changes[0][0]
+            # print(changes)
 
                         
         self.parameters.sigTreeStateChanged.connect(onFilterChange)
@@ -68,20 +78,31 @@ class FilterTreeView:
         out_titles = data_dict['out']['titles']
 
         p.param('Filter', 'Type').clearChildren()
-        
+        try:
+            p.param('Plot 1d', 'histogram flatten').disconnect()
+            p.param('Plot 2d', 'histogram lbl').disconnect()
+        except TypeError:
+            # known error: plot 1d, then plot 2d, histogram lbl has never been connected so it can't be disconnect
+            pass
+
         if rfdata.data_dict['sweep_dim'] == 1:
             p.param('Filter', 'Type').setLimits(d1_filters)
-            p.param('Filter', 'Type').setValue('No filter')
             #p.param('1d sweep').show()
             p.param('2d sweep').hide()
+            p.param('Plot 2d').hide()
             self.displayed_dim = 1
         elif rfdata.data_dict['sweep_dim'] == 2:
             p.param('Filter', 'Type').setLimits(d2_filters)
-            p.param('Filter', 'Type').setValue('No filter')
             #p.param('1d sweep').hide()
             p.param('2d sweep').show()
+            p.param('Plot 2d').show()
+            p.param('Plot 2d', 'histogram lbl').sigActivated.connect(lambda: self.makeHistogramLbl(rfdata))
+
             self.displayed_dim = 2
 
+        p.param('Filter', 'Type').setValue('No filter')
+
+        p.param('Plot 1d', 'histogram flatten').sigActivated.connect(lambda: self.makeHistogramFlatten(rfdata))
         p.param("auto update").setValue(False)
         
         # Polar/Cartesian
@@ -126,7 +147,58 @@ class FilterTreeView:
                 data_label = f"log {data_label}"
 
         new_label = f"{filt} {data_label}" if filt!= "No filter" else data_label
-        return fn(data, sigma, order), new_label
+        new_data = fn(data, sigma, order)
+        self.last_data_and_label = new_data, new_label
+        return new_data, new_label
+
+
+    def makeHistogramFlatten(self, rfdata_reference):
+        plot_dict = rfdata_reference.plot_dict
+
+        bins = self.parameters.param('Plot 1d', 'bins').value()
+        if self.displayed_dim == 1:
+            arr = plot_dict.get("y_data")
+        elif self.displayed_dim == 2:
+            arr = plot_dict.get("img").flatten()
+            arr = arr[~np.isnan(arr)]
+
+        hist, bins = np.histogram(arr.flatten(), bins=bins)
+        bins_c = (bins[:-1] + bins[1:]) / 2
+        bins_c_title = plot_dict.get("y_title")+" bins"
+        rfdata = ReadfileData.from_computed_array_1d(
+            out_datas = [bins_c, hist],
+            out_titles = [bins_c_title, "count"],
+            rfdata_original=rfdata_reference
+        )
+        self.fn_new_computed_rfdata(rfdata)
+    
+    def makeHistogramLbl(self, rfdata_reference):
+        plot_dict = rfdata_reference.plot_dict
+        # displayed dim should already be 2 (from onNewReadFileData)
+        arr = plot_dict.get("img")
+        extent = plot_dict.get("extent")
+        bins_c_title = plot_dict.get("y_title")+" bins"
+
+        bins = self.parameters.param('Plot 2d', 'bins').value()
+        bins_vec = np.histogram(arr[~np.isnan(arr)].flatten(), bins=bins)[1]
+        bins_vec_c = (bins_vec[:-1] + bins_vec[1:]) / 2
+        hists_rows = np.array([
+            np.histogram(row, bins=bins_vec)[0]
+            if np.any(~np.isnan(row)) else np.zeros(len(bins_vec) - 1)
+            for row in arr
+        ])
+
+        rfdata = ReadfileData.from_computed_array_2d(
+            x_title = plot_dict.get("x_title"),
+            x_1d_data = np.linspace(extent[0], extent[1], arr.shape[0]),
+            y_title = plot_dict.get("z_title")+" bins",
+            y_1d_data = bins_vec_c,
+            out_titles = ["count"],
+            out_datas = [hists_rows],
+            rfdata_original = rfdata_reference,
+            data_dict_updates = dict(alternate=False)
+        )
+        self.fn_new_computed_rfdata(rfdata)
 
 
 

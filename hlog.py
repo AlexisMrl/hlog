@@ -1,9 +1,10 @@
 from PyQt5.QtWidgets import QApplication, QSplashScreen
-from PyQt5.QtCore import QObject, Qt, pyqtSignal, QThread
+from PyQt5.QtCore import QObject, Qt, pyqtSignal
 from PyQt5.QtGui import QPixmap
 
-import pyHegel.commands as c
-import os, sys
+import os
+import sys
+from typing import Optional
 
 from views.MainView import MainView
 from src.ReadfileData import ReadfileData
@@ -11,21 +12,21 @@ from src.QuickThread import QuickThread
 from src.Popup import Popup
 from src.Database import DBPlots
 
-class hlog(QObject):
 
+class hlog(QObject):
     sig_fileOpened = pyqtSignal(ReadfileData, bool)
 
-    def __init__(self, path:str, app:QApplication=None, file=None):
+    def __init__(self, path: str, app: Optional[QApplication] = None, file=None):
         super().__init__()
         self.app = app
 
         project_dir = os.path.dirname(os.path.abspath(__file__))
         db_path = os.path.join(project_dir, "plots.db")
         self.db = DBPlots(db_path)
-        
+
         self.main_view = mv = MainView(self)
         self.pop = Popup()
-        
+
         self.loading_thread = None
         self.current_data = None
 
@@ -37,12 +38,13 @@ class hlog(QObject):
 
         # First exec:
         self.main_view.file_tree.changePath(path)
-        #self.write(':)')
-        if file: self.openFile(file)
+        # self.write(':)')
+        if file:
+            self.openFile(file)
 
     def openFile(self, path):
-        self.main_view.write('Opening file: '+path)
-        
+        self.main_view.write("Opening file: " + path)
+
         # ReadfileData in a thread
         # ReadfileData.from_filepath(path)
         self.loading_thread = QuickThread(ReadfileData.from_filepath, filepath=path)
@@ -50,40 +52,41 @@ class hlog(QObject):
         self.loading_thread.sig_error.connect(self.onFileOpenError)
         self.loading_thread.start()
 
-        #else:
+        # else:
         #    self.main_view.write('File type not supported :(\n'+path)
-        
+
     def onFileOpened(self, rfdata, fn_args, fn_kwargs):
         # called on thread success
         filepath = fn_kwargs.get("filepath")
-        self.main_view.write('Opened: '+filepath)
+        self.main_view.write("Opened: " + filepath)
         self.sig_fileOpened.emit(rfdata, self.main_view.file_tree.new_tab_asked)
         self.main_view.file_tree.new_tab_asked = False
-    
+
     def onFileOpenError(self, exception, fn_args, fn_kwargs):
         filepath = fn_kwargs.get("filepath")
-        self.main_view.write('Could not open file: '+filepath)
+        self.main_view.write("Could not open file: " + filepath)
         print(exception)
 
     def close(self):
         pass
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     # Start with no arguments => current directory
     # Start with a directory => load in that directory
     # Start with a file => load that file, and set the directory to the directory above
     # arg --with-app => start with a QApplication (for standalone use)
-    
+
     app = None
     path, file = os.getcwd(), None
 
-    if '--with-app' in sys.argv:
+    if "--with-app" in sys.argv:
         QApplication.setAttribute(Qt.AA_EnableHighDpiScaling, True)
         QApplication.setAttribute(Qt.AA_UseHighDpiPixmaps, True)
         app = QApplication([])
-        app.setApplicationName('hlog')
-        sys.argv.remove('--with-app')
-    
+        app.setApplicationName("hlog")
+        sys.argv.remove("--with-app")
+
     if len(sys.argv) > 1:
         if os.path.isdir(sys.argv[1]):
             path = sys.argv[1]
@@ -91,19 +94,18 @@ if __name__ == '__main__':
             file = sys.argv[1]
             path = os.path.dirname(file)
 
-    pixmap = QPixmap('./resources/icon.png')
-    #pixmap = pixmap.scaledToWidth(200, mode=Qt.SmoothTransformation)
+    pixmap = QPixmap("./resources/icon.png")
+    # pixmap = pixmap.scaledToWidth(200, mode=Qt.SmoothTransformation)
     splash = QSplashScreen(pixmap)
     splash.setWindowFlags(Qt.WindowStaysOnTopHint | Qt.FramelessWindowHint)
-    msg = 'Loading...' + '\n' + path
+    msg = "Loading..." + "\n" + path
     splash.showMessage(msg, alignment=Qt.AlignBottom | Qt.AlignHCenter, color=Qt.white)
-    #splash.show()
+    # splash.show()
 
     hl = hlog(path, app, file=file)
-    #splash.finish(hl.main_view)
+    # splash.finish(hl.main_view)
     hl.main_view.show()
     hl.main_view.write("hi")
-
 
     if app is not None:
         sys.exit(app.exec_())

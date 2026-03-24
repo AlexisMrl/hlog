@@ -98,6 +98,8 @@ class FileTreeView(QWidget):
                 self.view.keyPressEvent(QKeyEvent(QEvent.KeyPress, Qt.Key_End, Qt.NoModifier))
             else:
                 self.view.keyPressEvent(QKeyEvent(QEvent.KeyPress, Qt.Key_Home, Qt.NoModifier))
+        elif key == Qt.Key_Y:
+            self.copyPath()
 
         elif key == Qt.Key_W:
             if modifiers & Qt.ControlModifier:
@@ -186,6 +188,7 @@ class FileTreeView(QWidget):
         index = self.view.currentIndex()
         path = self.model.filePath(index)
         self.clipboard.setText(path)
+        self.main_view.write('Copied: '+ path)
     
     def refresh(self):
         path = self.model.filePath(self.view.rootIndex())

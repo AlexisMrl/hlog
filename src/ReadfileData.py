@@ -2,6 +2,7 @@ import pyHegel.commands as c
 import os, sys, hashlib
 import h5py
 import numpy as np
+from copy import copy, deepcopy
 
 DATA_DICT_FORMAT = {
     'x': {
@@ -17,7 +18,7 @@ DATA_DICT_FORMAT = {
         'titles': ['out1', 'out2'],
         'data': [np.random.rand(11,6), np.random.rand(11,6)]
     },
-    'computed_out': {'titles': [], 'data': []}, # for computed data (r, deg, x, y)
+    # 'computed_out': {'titles': [], 'data': []}, # for computed data (r, deg, x, y)
     'alternate': False,
     'beforewait': True,
     'sweep_dim': 2,
@@ -27,6 +28,23 @@ DATA_DICT_FORMAT = {
     'comments': [],
     'sweep_time': None # epoch [beginning, end]
     }
+
+PLOT_DICT_1D_FORMAT = {
+    "x_title": "",
+    "y_title": "",
+    "x_data": [0],
+    "y_data": [0],
+    "grid": True,
+}
+PLOT_DICT_2D_FORMAT = {
+    "img": np.array([[0], [0]]),
+    "x_title": "",
+    "y_title": "",
+    "z_title": "",
+    "cmap": "obj",
+    "extent": [0, 1, 0, 1],
+    "grid": True,
+}
 
 class ReadfileData:
 
@@ -48,24 +66,25 @@ class ReadfileData:
         # search in the out titles and data
         if title in self.data_dict['out']['titles']:
             i = self.data_dict['out']['titles'].index(title)
-            data_cp = self.data_dict['out']['data'][i].copy()
+            data_cp_shallow = copy(self.data_dict['out']['data'][i])
         # search in the computed_out titles and data
         #elif title in self.data_dict['computed_out']['titles']:
         #    i = self.data_dict['computed_out']['titles'].index(title)
-        #    data_cp = self.data_dict['computed_out']['data'][i].copy()
+        #    data_cp = deepcopy(self.data_dict['computed_out']['data'][i])
         else:
+            print("error on get_data ", self.data_dict['out']['titles'])
             raise KeyError()
         if self.data_dict['sweep_dim'] == 1:
-            return data_cp
+            return data_cp_shallow
         if self.data_dict['sweep_dim'] == 2:
             # alternate data if needed
             if alternate:
                 # flip odd rows
-                data_cp[1::2] = data_cp[1::2, ::-1]
+                data_cp_shallow[1::2] = data_cp_shallow[1::2, ::-1]
             if transpose:
-                data_cp = data_cp.T
+                data_cp_shallow = data_cp_shallow.T
             # transpose by default
-            return data_cp.T
+            return data_cp_shallow.T
     
     def get_extent(self, transpose=False):
         x_start, x_stop, x_nbpts, x_step = self.data_dict['x']['range']
@@ -141,8 +160,65 @@ class ReadfileData:
             reload_function = load_function
         )
 
+    @staticmethod
+    def from_computed_array_1d(
+        out_datas,
+        out_titles,
+        rfdata_original,
+        data_dict_updates={}
+    ):
+        """ first outs are interpreted as x and y """
+        assert len(out_datas) >=2
+        assert len(out_datas) == len(out_titles)
+
+        rfdata = deepcopy(rfdata_original)
+        data_dict = rfdata.data_dict
+        data_dict.update(data_dict_updates)
+        data_dict['sweep_dim'] = 1
+
+        data_dict['x']['data'] = out_datas[0]
+        data_dict['x']['title'] = out_titles[0]
+        data_dict['x']['range'] = findSweepRange1D(out_datas[0])
+        data_dict['out']['titles'] = []
+        data_dict['out']['data'] = []
+        for title, data in zip(out_titles, out_datas):
+            data_dict['out']['titles'].append(title)
+            data_dict['out']['data'].append(data)
+
+        return rfdata
+
+    @staticmethod
+    def from_computed_array_2d(
+        x_title, x_1d_data,
+        y_title, y_1d_data,
+        out_titles, out_datas,
+        rfdata_original,
+        data_dict_updates
+    ):
+        """ first outs are interpreted as x and y """
+        rfdata = deepcopy(rfdata_original)
+        data_dict = rfdata.data_dict
+        data_dict.update(data_dict_updates)
+
+        data_dict['sweep_dim'] = 2
+
+        data_dict['x']['title'] = x_title
+        data_dict['y']['title'] = y_title
+        data_dict['x']['data'] = x_1d_data
+        data_dict['y']['data'] = y_1d_data
+        data_dict['x']['range'] = findSweepRange1D(x_1d_data)
+        data_dict['y']['range'] = findSweepRange1D(y_1d_data)
+
+        data_dict['out']['titles'] = []
+        data_dict['out']['data'] = []
+        for title, data in zip(out_titles, out_datas):
+            data_dict['out']['titles'].append(title)
+            data_dict['out']['data'].append(data)
+
+        return rfdata
+
 def ph_load(filepath) -> dict:
-    data_dict = DATA_DICT_FORMAT.copy()
+    data_dict = deepcopy(DATA_DICT_FORMAT)
     try:
         data, titles, headers = c.readfile(filepath, getheaders=True, multi_sweep='force')
     except:
@@ -274,7 +350,7 @@ def ph_findBeforeWait(headers):
     return beforewait
 
 def h5_load(filepath) -> dict:
-    data_dict = DATA_DICT_FORMAT.copy()
+    data_dict = deepcopy(DATA_DICT_FORMAT)
     with h5py.File(filepath, "r", swmr=True) as file:
         data, meta = file.get("data"), file.get("meta")
         version = str(meta.attrs.get("VERSION"))

@@ -104,7 +104,7 @@ class SweepTreeView:
         
         #transpose = {'name': 'Transpose', 'type': 'bool', 'value': False}
         #p.param('Sweep').addChildren([transpose])
-        
+
     def get_xy_titles(self, transpose=False):
         p = self.parameters
         x_title = p.param('Out', 'x').value()

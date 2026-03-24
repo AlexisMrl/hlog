@@ -1,17 +1,20 @@
-import sys, os
 import numpy as np
-from PyQt5.QtWidgets import QWidget, QVBoxLayout, QAction, QToolBar
-from PyQt5.QtCore import Qt, pyqtSignal
-from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
+from PyQt5.QtWidgets import QWidget, QVBoxLayout
+from PyQt5.QtCore import pyqtSignal
+from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
+
 from PyQt5.Qt import QTimer
 from matplotlib.figure import Figure
-from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT as NavigationToolbar
+from matplotlib.backends.backend_qt import NavigationToolbar2QT as NavigationToolbar
 from matplotlib import colors
 
 
 from matplotlib.widgets import Cursor
+
 from widgets.MPLElements import ResizableLine, Markers
 from widgets.MPLToolbar import MPLToolbar
+
+from copy import deepcopy
 
 class MPLView(QWidget):
     
@@ -122,9 +125,9 @@ class MPLView(QWidget):
             update using the function in self.plot_fns
         some special cases are treated first, with a pop.
         """
-        d = rfdata.plot_dict.copy()
+        d = deepcopy(rfdata.plot_dict)
         last_d = self.last_plot_dict
-        self.last_plot_dict = d.copy() # SAVE for the future update
+        self.last_plot_dict = deepcopy(d) # SAVE for the future update
 
         need_redraw = False
         # SPECIAL CASE
@@ -167,9 +170,9 @@ class MPLView(QWidget):
             update using the function in self.plot_fns
         some special cases are treated first, with a pop.
         """
-        d = rfdata.plot_dict.copy()
+        d = deepcopy(rfdata.plot_dict)
         last_d = self.last_plot_dict
-        self.last_plot_dict = d.copy() # SAVE for the future update
+        self.last_plot_dict = deepcopy(d) # SAVE for the future update
 
         # SPECIAL CASES
         ## CBAR
