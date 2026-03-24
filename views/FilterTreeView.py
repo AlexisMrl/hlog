@@ -188,8 +188,8 @@ class FilterTreeView:
         ])
 
         rfdata = ReadfileData.from_computed_array_2d(
-            x_title = plot_dict.get("x_title"),
-            x_1d_data = np.linspace(extent[0], extent[1], arr.shape[0]),
+            x_title = plot_dict.get("y_title"),
+            x_1d_data = np.linspace(extent[2], extent[3], arr.shape[0]),
             y_title = plot_dict.get("z_title")+" bins",
             y_1d_data = bins_vec_c,
             out_titles = ["count"],
