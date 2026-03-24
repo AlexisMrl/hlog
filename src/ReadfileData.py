@@ -277,7 +277,8 @@ def h5_load(filepath) -> dict:
     data_dict = DATA_DICT_FORMAT.copy()
     with h5py.File(filepath, "r", swmr=True) as file:
         data, meta = file.get("data"), file.get("meta")
-        if meta.attrs.get("VERSION") not in (0.1, "0.1"): 
+        version = str(meta.attrs.get("VERSION"))
+        if version not in ("0.1", "0.2", "0.3"): 
             raise NotImplementedError(f"VERSION not supported :)")
 
         sweep_names = data.attrs.get("sweeped_ax_names")
