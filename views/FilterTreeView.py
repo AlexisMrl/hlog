@@ -177,7 +177,6 @@ class FilterTreeView:
         # displayed dim should already be 2 (from onNewReadFileData)
         arr = plot_dict.get("img")
         extent = plot_dict.get("extent")
-        bins_c_title = plot_dict.get("y_title")+" bins"
 
         bins = self.parameters.param('Plot 2d', 'bins').value()
         bins_vec = np.histogram(arr[~np.isnan(arr)].flatten(), bins=bins)[1]
