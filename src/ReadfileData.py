@@ -161,12 +161,19 @@ class ReadfileData:
         )
 
     @staticmethod
-    def from_computed_array_1d(out_datas, out_titles, rfdata_original):
+    def from_computed_array_1d(
+        out_datas,
+        out_titles,
+        rfdata_original,
+        data_dict_updates={}
+    ):
+        """ first outs are interpreted as x and y """
         assert len(out_datas) >=2
         assert len(out_datas) == len(out_titles)
 
         rfdata = deepcopy(rfdata_original)
         data_dict = rfdata.data_dict
+        data_dict.update(data_dict_updates)
         data_dict['sweep_dim'] = 1
 
         data_dict['x']['data'] = out_datas[0]
@@ -181,8 +188,33 @@ class ReadfileData:
         return rfdata
 
     @staticmethod
-    def from_2d_computed_array(out_datas, out_titles, rfdata_original):
-        pass
+    def from_computed_array_2d(
+        x_title, x_1d_data,
+        y_title, y_1d_data,
+        out_titles, out_datas,
+        rfdata_original,
+        data_dict_updates
+    ):
+        """ first outs are interpreted as x and y """
+        rfdata = deepcopy(rfdata_original)
+        data_dict = rfdata.data_dict
+        data_dict.update(data_dict_updates)
+
+        data_dict['sweep_dim'] = 2
+
+        data_dict['x']['title'] = x_title
+        data_dict['y']['title'] = y_title
+        data_dict['x']['data'] = x_1d_data
+        data_dict['y']['data'] = y_1d_data
+        data_dict['x']['range'] = findSweepRange1D(x_1d_data)
+        data_dict['y']['range'] = findSweepRange1D(y_1d_data)
+
+        data_dict['out']['titles'] = []
+        data_dict['out']['data'] = []
+        for title, data in zip(out_titles, out_datas):
+            data_dict['out']['titles'].append(title)
+            data_dict['out']['data'].append(data)
+
         return rfdata
 
 def ph_load(filepath) -> dict:

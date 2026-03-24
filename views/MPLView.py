@@ -14,6 +14,8 @@ from matplotlib.widgets import Cursor
 from widgets.MPLElements import ResizableLine, Markers
 from widgets.MPLToolbar import MPLToolbar
 
+from copy import deepcopy
+
 class MPLView(QWidget):
     
     sig_traceAsked = pyqtSignal(float, float) # xy_tuple
@@ -123,9 +125,9 @@ class MPLView(QWidget):
             update using the function in self.plot_fns
         some special cases are treated first, with a pop.
         """
-        d = rfdata.plot_dict.copy()
+        d = deepcopy(rfdata.plot_dict)
         last_d = self.last_plot_dict
-        self.last_plot_dict = d.copy() # SAVE for the future update
+        self.last_plot_dict = deepcopy(d) # SAVE for the future update
 
         need_redraw = False
         # SPECIAL CASE
@@ -168,9 +170,9 @@ class MPLView(QWidget):
             update using the function in self.plot_fns
         some special cases are treated first, with a pop.
         """
-        d = rfdata.plot_dict.copy()
+        d = deepcopy(rfdata.plot_dict)
         last_d = self.last_plot_dict
-        self.last_plot_dict = d.copy() # SAVE for the future update
+        self.last_plot_dict = deepcopy(d) # SAVE for the future update
 
         # SPECIAL CASES
         ## CBAR

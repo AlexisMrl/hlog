@@ -58,10 +58,9 @@ class MainView(QMainWindow):
         self.v_splitter.setSizes([300, 500])
         ##
 
-    def newTab(self, name:str):
-        """ Build tab layout
-        return: sweep_tree, filter_tree, setting_tree, graph
-        
+    def layoutNewTab(self, new_name:str):
+        """ Build a new tab layout:
+        creates the view/widgets
         """
         # LAYOUT
         graph = MPLView(self)
@@ -93,51 +92,54 @@ class MainView(QMainWindow):
         layout.graph = graph
 
         # add the tab
-        self.graphic_tabs.addTab(layout, name)
+        self.graphic_tabs.addTab(layout, new_name)
         self.graphic_tabs.setCurrentWidget(layout)
 
-        # return sweep_tree, filter_tree, setting_tree, graph
         return layout
 
-    def currentTab(self, name):
+    def layoutCurrentTab(self, new_name=""):
+        """ 
+        Get the layout of the current tab.
+        If no tab, creates one.
+        """
         layout = self.graphic_tabs.currentWidget()
         if not layout:
-            return self.newTab(name)
+            return self.layoutNewTab(new_name)
 
         index = self.graphic_tabs.currentIndex()
-        self.graphic_tabs.setTabText(index, name)
+        if new_name != "":
+            self.graphic_tabs.setTabText(index, new_name)
 
-        # return sweep_tree, filter_tree, setting_tree, graph
         return layout
 
     def closeTab(self, index=None):
+        """ closeTab by index, else the current one. """
         if not index:
             index = self.graphic_tabs.currentIndex()
         self.graphic_tabs.removeTab(index)
 
     def write(self, text):
+        """ write message to statusbar and also print """
         print(text)
         self.statusBar().showMessage(text)
 
     def onFileOpened(self, rfdata, new_tab_asked:bool, add_to_db=True):
-
-        get_layout = {True:self.newTab, False:self.currentTab}[new_tab_asked]
-        # sweep_tree, filter_tree, setting_tree, graph = get_layout(name=rfdata.filename)
-        layout = get_layout(name=rfdata.filename)
+        """ called when a thread has finished loading the rfdata object
+        Create the new layout, on a new tab if asked.
+        Create the update_fn function, to update the graph based on changes on the trees by user.
+        """
+        self.block_update = True
+        
+        get_layout = {
+            True: self.layoutNewTab,
+            False: self.layoutCurrentTab
+        }[new_tab_asked]
+        layout = get_layout(new_name=rfdata.filename)
         sweep_tree  = layout.sweep_tree
         filter_tree = layout.filter_tree
         graph = layout.graph
 
-        self.block_update = True
-        # Tell the views about the new rfdata:
-        sweep_tree.onNewReadFileData(rfdata)
-        filter_tree.onNewReadFileData(rfdata)
-        graph.onNewReadFileData(rfdata)
-        #setting_tree.onNewReadFileData(rfdata)
-        
-        # Connect signals
-        layout.update_fn = lambda: self.prepare_and_send_plot_dict(rfdata, layout)
-
+        # disconnect signals
         filter_tree.parameters.sigTreeStateChanged.disconnect()
         sweep_tree.parameters.sigTreeStateChanged.disconnect()
         try:
@@ -146,12 +148,20 @@ class MainView(QMainWindow):
             # TypeError: disconnect() failed between 'sig_traceAsked' and all its connections
             pass
 
+        # Tell the views about the new rfdata:
+        sweep_tree.onNewReadFileData(rfdata)
+        filter_tree.onNewReadFileData(rfdata)
+        graph.onNewReadFileData(rfdata)
+        
+        layout.update_fn = lambda: self.prepare_and_send_plot_dict(rfdata, layout)
+
         filter_tree.parameters.sigTreeStateChanged.connect(layout.update_fn)
         sweep_tree.parameters.sigTreeStateChanged.connect(layout.update_fn)
         plotTrace = lambda x, y: self.plotTrace(rfdata, x, y)
         graph.sig_traceAsked.connect(plotTrace)
         
         self.block_update = False
+
         layout.update_fn()
         
         if add_to_db:
@@ -168,11 +178,10 @@ class MainView(QMainWindow):
         sweep_tree  = layout.sweep_tree
         filter_tree = layout.filter_tree
         graph = layout.graph
-        
+
         d = rfdata.data_dict
         transpose_checked = filter_tree.transposeChecked()
         x_title, y_title = sweep_tree.get_xy_titles(transpose=transpose_checked)
-
         if d["sweep_dim"] == 1:
 
             x_data = rfdata.get_data(x_title)
@@ -208,7 +217,6 @@ class MainView(QMainWindow):
                 "grid": True,
                 #"z_scale": {False:"linear", True:"log"}[filter_tree.zLogChecked()]
             })
-            print(img.dtype)
             rfdata.plot_dict = plot_dict # saved for Traces
             graph.plot2D(rfdata)
 
