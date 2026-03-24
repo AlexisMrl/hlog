@@ -32,7 +32,7 @@ children = [
     ]},
     {'name': 'Plot 2d', 'type': 'group', 'children': [
         {'name': 'bins', 'type': 'int', 'value': 101},
-        {'name': 'histogram lbl', 'type': 'action'},
+        {'name': 'histogram cbc', 'type': 'action'},
     ]},
     #{'name': '1d sweep', 'type': 'group', 'children': [
     #    {'name': 'x log', 'type': 'bool', 'value': False},
@@ -80,9 +80,9 @@ class FilterTreeView:
         p.param('Filter', 'Type').clearChildren()
         try:
             p.param('Plot 1d', 'histogram flatten').disconnect()
-            p.param('Plot 2d', 'histogram lbl').disconnect()
+            p.param('Plot 2d', 'histogram cbc').disconnect()
         except TypeError:
-            # known error: plot 1d, then plot 2d, histogram lbl has never been connected so it can't be disconnect
+            # known error: plot 1d, then plot 2d, histogram cbc has never been connected so it can't be disconnect
             pass
 
         if rfdata.data_dict['sweep_dim'] == 1:
@@ -96,7 +96,7 @@ class FilterTreeView:
             #p.param('1d sweep').hide()
             p.param('2d sweep').show()
             p.param('Plot 2d').show()
-            p.param('Plot 2d', 'histogram lbl').sigActivated.connect(lambda: self.makeHistogramLbl(rfdata))
+            p.param('Plot 2d', 'histogram cbc').sigActivated.connect(lambda: self.makeHistogramCbc(rfdata))
 
             self.displayed_dim = 2
 
@@ -172,7 +172,7 @@ class FilterTreeView:
         )
         self.fn_new_computed_rfdata(rfdata)
     
-    def makeHistogramLbl(self, rfdata_reference):
+    def makeHistogramCbc(self, rfdata_reference):
         plot_dict = rfdata_reference.plot_dict
         # displayed dim should already be 2 (from onNewReadFileData)
         arr = plot_dict.get("img")
