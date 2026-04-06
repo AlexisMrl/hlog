@@ -22,10 +22,9 @@ DATA_DICT_FORMAT = {
     'alternate': False,
     'beforewait': True,
     'sweep_dim': 2,
-            #'hl_logs': {'dev1': 0.1, 'dev2': 0.2},
-            #'ph_logs': ['#dev1', '#dev2']
     'config': [],
     'comments': [],
+    'other_meta': [],
     'sweep_time': None # epoch [beginning, end]
     }
 
@@ -48,17 +47,18 @@ PLOT_DICT_2D_FORMAT = {
 
 class ReadfileData:
 
-    def __init__(self, filepath, metadata, h, data_dict, reload_function):
+    def __init__(self, filepath, metadata, h, data_dict, reload_function, reload_function_index):
         self.h = h
         self.metadata = metadata
         self.filepath = filepath
         self.filename = os.path.basename(filepath)
         self.data_dict = data_dict
         self.plot_dict = None # used to store current plotted (filtered) data
-        self.reload_function = reload_function
+        self.reload_function = reload_function # for reloading the data_dict
+        self.reload_function_index = reload_function_index # reload_function returns a list of data_dict. This is the index to take
     
     def reload(self):
-        self.data_dict = self.reload_function(self.filepath)
+        self.data_dict = self.reload_function(self.filepath)[self.reload_function_index]
         return self
             
     def get_data(self, title, alternate=False, transpose=False):
@@ -143,22 +143,24 @@ class ReadfileData:
 
 
     @staticmethod
-    def from_filepath(filepath):
+    def from_filepath(filepath) -> list:
         h =  hash_file(filepath)
         metadata = os.stat(filepath)
 
         ext = filepath.split('.')[-1]
         # Get load_function, fallback to pyHegel
         load_function = {"txt": ph_load, "hdf5": h5_load}.get(ext, ph_load)
-        data_dict = load_function(filepath)
-        
-        return ReadfileData(
-            filepath,
-            metadata=metadata,
-            h=h,
-            data_dict=data_dict,
-            reload_function = load_function
-        )
+        data_dicts = load_function(filepath)
+        return [
+            ReadfileData(
+                filepath,
+                metadata=metadata,
+                h=h,
+                data_dict=data_dict,
+                reload_function = load_function,
+                reload_function_index = i
+            ) for i, data_dict in enumerate(data_dicts)
+        ]
 
     @staticmethod
     def from_computed_array_1d(
@@ -217,7 +219,13 @@ class ReadfileData:
 
         return rfdata
 
-def ph_load(filepath) -> dict:
+def ph_load(filepath) -> list[dict]:
+    """
+    Returns:
+        [data_dict], a list with one element.
+    This if for compatility with h5 case where one file can have multiple sweep dims/axes
+    ph cannot, thus always len == 1.
+    """
     data_dict = deepcopy(DATA_DICT_FORMAT)
     try:
         data, titles, headers = c.readfile(filepath, getheaders=True, multi_sweep='force')
@@ -239,7 +247,7 @@ def ph_load(filepath) -> dict:
     data_dict['config'] = config
     data_dict['comments'] = comment
     
-    return data_dict
+    return [data_dict]
 
 def ph_build1DDataDict(data, titles, header, data_dict):
     # in one dimension, we use the x and out keys
@@ -349,30 +357,71 @@ def ph_findBeforeWait(headers):
         beforewait = np.nan
     return beforewait
 
-def h5_load(filepath) -> dict:
-    data_dict = deepcopy(DATA_DICT_FORMAT)
+def h5_load(filepath) -> list[dict]:
+    """
+    Returns:
+        list of data_dict, one for every axes_tuple in the file
+    """
     with h5py.File(filepath, "r", swmr=True) as file:
         data, meta = file.get("data"), file.get("meta")
         version = str(meta.attrs.get("VERSION"))
-        if version not in ("0.1", "0.2", "0.3"): 
-            raise NotImplementedError(f"VERSION not supported :)")
+        # Test global version support
+        # the different treatment come after.
+        if version not in ("0.1", "0.2", "0.3", "0.4"):
+            raise NotImplementedError("VERSION not supported :)")
 
         sweep_names = data.attrs.get("sweeped_ax_names")
         out_names = data.attrs.get("result_data_names")
-
-        if len(sweep_names) == 1:
-            data_dict['sweep_dim'] = 1
-            h5_build1DDataDict(data, sweep_names[0], out_names, data_dict)
-        elif len(sweep_names) == 2:
-            data_dict['sweep_dim'] = 2
-            h5_build2DDataDict(data, sweep_names, out_names, data_dict)
-        else:
-            raise NotImplementedError(f"Sweep dimension not 1 or 2")
+        if version in ("0.4",):
+            data_dicts = []
+            # .4 can have 1d, 2d, nd sweep in one file, all with different axes
+            # We separate build one data_dict per axes_tuple
+            axes_list = []
+            out_lists = []
+            # Collect every swept_axes tuples, with their out_names
+            for i, out_name in enumerate(out_names):
+                swept_axes = list(file["data"][out_name].attrs.get("axes"))
+                if swept_axes not in axes_list:
+                    axes_list.append(swept_axes)
+                    out_lists.append([out_name])
+                else:
+                    out_lists[axes_list.index(swept_axes)].append(out_name)
+            # For each axes_tuple, make a data_dicts with the corresponding outs
+            for axes, out_list in zip(axes_list, out_lists):
+                match len(axes):
+                    case 1:
+                        data_dict = deepcopy(DATA_DICT_FORMAT)
+                        data_dict['sweep_dim'] = 1
+                        h5_build1DDataDict(data, axes[0], out_list, data_dict)
+                    case 2:
+                        data_dict = deepcopy(DATA_DICT_FORMAT)
+                        data_dict['sweep_dim'] = 2
+                        h5_build2DDataDict(data, axes, out_list, data_dict)
+                    case _:
+                        raise NotImplementedError("Sweep dimension not 1 or 2")
+                        continue
+                data_dict['config'] = meta.attrs.get("config", [])
+                data_dict['comments'] = meta.attrs.get("cell", [])
+                data_dict['other_meta'] = [f"{k}:{v}" for k, v in meta.attrs.items()]
+                data_dicts.append(data_dict)
+                # print(data_dicts)
+            return data_dicts
+        
+        elif version in ("0.1", "0.2", "0.3"):
+            data_dict = deepcopy(DATA_DICT_FORMAT)
+            if len(sweep_names) == 1:
+                data_dict['sweep_dim'] = 1
+                h5_build1DDataDict(data, sweep_names[0], out_names, data_dict)
+            elif len(sweep_names) == 2:
+                data_dict['sweep_dim'] = 2
+                h5_build2DDataDict(data, sweep_names, out_names, data_dict)
+            else:
+                raise NotImplementedError(f"Sweep dimension not 1 or 2")
     
-        data_dict['config'] = meta.attrs.get("config")
-        data_dict['comments'] = meta.attrs.get("cell")
+            data_dict['config'] = meta.attrs.get("config")
+            data_dict['comments'] = meta.attrs.get("cell")
 
-    return data_dict
+            return [data_dict]
 
 def h5_build1DDataDict(data, x_name, out_names, data_dict):
     # in one dimension, we use the x and out keys

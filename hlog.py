@@ -28,7 +28,7 @@ class hlog(QObject):
         self.pop = Popup()
 
         self.loading_thread = None
-        self.current_data = None
+        self.current_data = None # for debug
 
         # SIGNALS ingoing from views
         mv.file_tree.sig_askOpenFile.connect(self.openFile)
@@ -55,11 +55,13 @@ class hlog(QObject):
         # else:
         #    self.main_view.write('File type not supported :(\n'+path)
 
-    def onFileOpened(self, rfdata, fn_args, fn_kwargs):
+    def onFileOpened(self, rfdata_list, fn_args, fn_kwargs):
         # called on thread success
         filepath = fn_kwargs.get("filepath")
         self.main_view.write("Opened: " + filepath)
-        self.sig_fileOpened.emit(rfdata, self.main_view.file_tree.new_tab_asked)
+        self.current_data = rfdata_list
+        for rfdata in rfdata_list:
+            self.sig_fileOpened.emit(rfdata, self.main_view.file_tree.new_tab_asked)
         self.main_view.file_tree.new_tab_asked = False
 
     def onFileOpenError(self, exception, fn_args, fn_kwargs):
