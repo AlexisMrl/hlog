@@ -227,7 +227,7 @@ class MainView(QMainWindow):
             graph.wait_for_autoupdate(
                 2000,
                 lambda: self.prepare_and_send_plot_dict(
-                    rfdata.reload(), filter_tree, sweep_tree, graph
+                    rfdata.reload(), layout
                 )
             )
 
