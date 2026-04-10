@@ -1,6 +1,14 @@
 # hlog
 Application pyqt pour visualiser les données pyHegel et hdf5.
 
+# Installation
+avec python > 3.11
+```
+python -m venv venv
+source ./venv/bin/activate
+pip install -r requirements.txt
+python hlog.py --with-app <path>
+```
 
 # Structure du code
 `hlog.py`:
