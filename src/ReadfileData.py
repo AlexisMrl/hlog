@@ -372,14 +372,15 @@ def h5_load(filepath) -> list[dict]:
         version = str(meta.attrs.get("VERSION"))
         # Test global version support
         # the different treatment come after.
-        if version not in ("0.1", "0.2", "0.3", "0.4"):
+        SUPPORTED_HDF5_VERSIONS = ("0.1", "0.2", "0.3", "0.4", "0.5")
+        if version not in SUPPORTED_HDF5_VERSIONS:
             raise NotImplementedError("VERSION not supported :)")
 
         sweep_names = data.attrs.get("sweeped_ax_names")
         out_names = data.attrs.get("result_data_names")
-        if version in ("0.4",):
+        if version in ("0.4", "0.5"):
             data_dicts = []
-            # .4 can have 1d, 2d, nd sweep in one file, all with different axes
+            # .4+ can have 1d, 2d, nd sweep in one file, all with different axes
             # We separate build one data_dict per axes_tuple
             axes_list = []
             out_lists = []
