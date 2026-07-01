@@ -195,6 +195,8 @@ class MPLView(QWidget):
             vmin, vmax = np.nanmin(img), np.nanmax(img)
             self.im.set_norm(colors.Normalize(vmin, vmax))
             self.bar.update_normal(self.im)
+            if vmin == vmax:
+                vmin, vmax = vmax*0.9, vmax*1.1
             self.bar.ax.set_ylim(vmin, vmax)
             ## update home
             # save temp image axes view
