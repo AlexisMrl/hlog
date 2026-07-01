@@ -45,6 +45,9 @@ PLOT_DICT_2D_FORMAT = {
     "grid": True,
 }
 
+SUPPORTED_HDF5_VERSIONS = ("0.1", "0.2", "0.3", "0.4", "0.5")
+SUPPORTED_HDF5_VERSIONS_WITH_RESULTS = SUPPORTED_HDF5_VERSIONS[3:]
+
 class ReadfileData:
 
     def __init__(self, filepath, metadata, h, data_dict, reload_function, reload_function_index):
@@ -148,14 +151,23 @@ class ReadfileData:
 
 
     @staticmethod
-    def from_filepath(filepath) -> list:
+    def from_filepath(filepath, loading_kwargs:dict={}) -> list:
+        """detect filetype then load with appropriate function
+
+        Args:
+            filepath (str)
+            loading_kwargs (dict): keywords passed to the loading function
+
+        Returns:
+            list: _description_
+        """
         h =  hash_file(filepath)
         metadata = os.stat(filepath)
 
         ext = filepath.split('.')[-1]
         # Get load_function, fallback to pyHegel
         load_function = {"txt": ph_load, "hdf5": h5_load}.get(ext, ph_load)
-        data_dicts = load_function(filepath)
+        data_dicts = load_function(filepath, loading_kwargs)
         return [
             ReadfileData(
                 filepath,
@@ -362,17 +374,23 @@ def ph_findBeforeWait(headers):
         beforewait = np.nan
     return beforewait
 
-def h5_load(filepath) -> list[dict]:
+
+def h5_load(filepath, loading_kwargs:dict={}) -> list[dict]:
     """
+    loading_kwargs: {"h5": {"group_name": group_name, "result_name": result_name}}
+
     Returns:
         list of data_dict, one for every axes_tuple in the file
     """
+
+    if (kwargs := loading_kwargs.get("h5", None)) is not None:
+        print("h5_load ", kwargs)
+        return h5_load_from_results(filepath, kwargs["group_name"], kwargs["result_name"])
+
     with h5py.File(filepath, "r", swmr=True) as file:
         data, meta = file.get("data"), file.get("meta")
         version = str(meta.attrs.get("VERSION"))
         # Test global version support
-        # the different treatment come after.
-        SUPPORTED_HDF5_VERSIONS = ("0.1", "0.2", "0.3", "0.4", "0.5")
         if version not in SUPPORTED_HDF5_VERSIONS:
             raise NotImplementedError("VERSION not supported :)")
 
@@ -460,6 +478,66 @@ def h5_build2DDataDict(data, sweeped_names, out_names, data_dict):
         data_dict['out']['data'].append(out_data)
 
     return data_dict
+
+
+def h5_preview_results_group(filepath, pass_to_fn) -> h5py.Group:
+    """Call `fn_to_execute` with the file `results` section if VERSION is supported and the group `results` exists. Else return False.
+    Fn as argument because we do not want the file to stay opened.
+
+    fn_to_execute: Callable[h5py.Group]
+
+
+    """
+    with h5py.File(filepath, "r", swmr=True) as file:
+        meta = file.get("meta")
+        version = str(meta.attrs.get("VERSION"))
+        if version not in SUPPORTED_HDF5_VERSIONS_WITH_RESULTS:
+            return False
+        
+        if "results" not in file:
+            return False
+        
+        pass_to_fn(file.get("results"))
+
+def h5_load_from_results(filepath, group_name, result_name):
+    with h5py.File(filepath, "r", swmr=True) as file:
+        meta = file.get("meta")
+        version = str(meta.attrs.get("VERSION"))
+        if version not in SUPPORTED_HDF5_VERSIONS_WITH_RESULTS:
+            return False
+        
+        if "results" not in file:
+            return False
+        
+
+        group = file["results"].get(group_name)
+
+        swept_axes = list(group[result_name].attrs.get("axes"))
+        out_list = [result_name]
+        # TODO: check and load all results having the same swept_axes
+        # out_list +=
+
+        if len(swept_axes) == 1:
+            data_dict = deepcopy(DATA_DICT_FORMAT)
+            data_dict['sweep_dim'] = 1
+            h5_build1DDataDict(group, swept_axes[0], out_list, data_dict)
+        
+        elif len(swept_axes) == 2:
+            data_dict = deepcopy(DATA_DICT_FORMAT)
+            data_dict['sweep_dim'] = 2
+            h5_build2DDataDict(group, swept_axes, out_list, data_dict)
+
+        else:
+            raise NotImplementedError("Sweep dimension not 1 or 2")
+                    
+
+        return [data_dict]
+
+
+
+
+
+
 
 def findSweepRange1D(array):
     # try to find the ranges the sweep array

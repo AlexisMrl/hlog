@@ -1,42 +1,79 @@
-from PyQt5.QtWidgets import QWidget, QLabel, QVBoxLayout, QSizePolicy
+from PyQt5.QtWidgets import (
+    QWidget,
+    QLabel,
+    QVBoxLayout,
+    QSizePolicy,
+    QTreeWidget,
+    QTreeWidgetItem,
+)
 from PyQt5.QtGui import QPixmap
 from PyQt5.QtCore import Qt
 
+import numpy as np
+import h5py
+
+from typing import Callable
+
+
 class PreviewWidget(QWidget):
+    def __init__(self):
+        super().__init__()
+
+        self.dict = DictPreview()
+        self.image = ImgPreview()
+
+        layout = QVBoxLayout(self)
+        layout.addWidget(self.dict)
+        layout.addWidget(self.image)
+
+        self.clear()
+
+    def showPng(self, png_bytes):
+        self.image.showPng(png_bytes)
+
+    def showResultGroup(self, filepath, results_group, ask_load_fn):
+        self.dict.show()
+        self.dict.set_data(filepath, results_group, ask_load_fn)
+
+    def clear(self):
+        self.image.clear()
+        self.dict.clear()
+        self.dict.hide()
+
+
+class ImgPreview(QLabel):
     def __init__(self, parent=None):
         super().__init__(parent)
 
-        self.label = QLabel(alignment=Qt.AlignCenter)
-        self.label.setMinimumSize(0, 0)
-        self.label.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Ignored)
-        
+        self.setAlignment(Qt.AlignCenter)
+        # self.setMinimumSize(100, 100)
+        self.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Ignored)
+
         self._src_pixmap = None
         self._last_size = None
-
-        layout = QVBoxLayout(self)
-        layout.addWidget(self.label)
-
-    def showPng(self, png_bytes):
-        pm = QPixmap()
-        pm.loadFromData(png_bytes, "PNG")
-        self._src_pixmap = pm
-        self._last_size = None
-        self._updatePixmap()
 
     def resizeEvent(self, event):
         super().resizeEvent(event)
         self._updatePixmap()
 
-    def _updatePixmap(self):
-        if not self._src_pixmap:
+    def clear(self):
+        self._src_pixmap = None
+        self._last_size = None
+        super().clear()
+
+    def showPng(self, png_bytes):
+        pm = QPixmap()
+        if not pm.loadFromData(png_bytes, "PNG"):
+            self.clear()
             return
 
-        size = self.label.size()
+        self._src_pixmap = pm
+
+        size = self.size()
         if size == self._last_size:
             return
 
-        self._last_size = size
-        self.label.setPixmap(
+        self.setPixmap(
             self._src_pixmap.scaled(
                 size,
                 Qt.KeepAspectRatio,
@@ -44,6 +81,91 @@ class PreviewWidget(QWidget):
             )
         )
 
-    def clear(self):
-        self._src_pixmap = None
-        self.label.clear()
+    def _updatePixmap(self):
+        if self._src_pixmap is None or self._src_pixmap.isNull():
+            return
+
+        size = self.size()
+        if size == self._last_size:
+            return
+
+        self._last_size = size
+
+        self.setPixmap(
+            self._src_pixmap.scaled(
+                size,
+                Qt.KeepAspectRatio,
+                Qt.SmoothTransformation,
+            )
+        )
+
+
+class DictPreview(QTreeWidget):
+    def __init__(self):
+        super().__init__()
+
+        self.setColumnCount(2)
+        self.setHeaderLabels(["Name", "Info"])
+        self.setAlternatingRowColors(True)
+        self.itemDoubleClicked.connect(self.onItemDoubleClick)
+
+    def set_data(
+        self,
+        filepath,
+        result_group: h5py.Group,
+        ask_load_fn: Callable[[str, str], bool]
+    ):
+        """
+        ask_load_fn ignature: ask_load_fn(groupname: str, result_name: str)
+        """
+        self.clear()
+
+        for group_name, group in result_group.items():
+            group_item = QTreeWidgetItem([group_name])
+            self.addTopLevelItem(group_item)
+
+            axes_item = QTreeWidgetItem(["Axes"])
+            results_item = QTreeWidgetItem(["Results"])
+            group_item.addChild(axes_item)
+            group_item.addChild(results_item)
+
+            data_names = group.attrs["result_data_names"]
+            ax_names = group.attrs["sweeped_ax_names"]
+
+            for ax_name in ax_names:
+                ax = group.get(ax_name)
+                info = f"len={len(ax)} dtype={ax.dtype}"
+                item = QTreeWidgetItem([ax_name, info])
+                item.setData(0, Qt.UserRole, "ax")
+                axes_item.addChild(item)
+            for data_name in data_names:
+                data = group.get(data_name)
+                info = f"{data.shape} {data.attrs.get('axes')}, dtype={data.dtype}"
+                item = QTreeWidgetItem([data_name, info])
+                item.setData(0, Qt.UserRole, "result")
+                item.setData(1, Qt.UserRole, group_name)
+                item.setData(2, Qt.UserRole, data_name)
+                item.setData(3, Qt.UserRole, ask_load_fn)
+                results_item.addChild(item)
+
+        self.expandToDepth(1)
+        self.resizeColumnToContents(0)
+        self.resizeColumnToContents(1)
+
+        # resize fit to height
+        rows = self.model().rowCount()
+        for i in range(self.topLevelItemCount()):
+            rows += self.topLevelItem(i).childCount()
+            for j in range(self.topLevelItem(i).childCount()):
+                rows += self.topLevelItem(i).child(j).childCount()
+
+        row_h = self.sizeHintForRow(0) if rows else self.fontMetrics().height() + 6
+        height = self.header().height() + rows * row_h + 2 * self.frameWidth()
+        self.setFixedHeight(height)
+
+    def onItemDoubleClick(self, item, column):
+        if item.data(0, Qt.UserRole) == "result":
+            group_name = item.data(1, Qt.UserRole)
+            data_name = item.data(2, Qt.UserRole)
+            ask_load_fn = item.data(3, Qt.UserRole)
+            ask_load_fn(group_name, data_name)

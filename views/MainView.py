@@ -46,9 +46,10 @@ class MainView(QMainWindow):
         self.graphic_tabs.tabCloseRequested.connect(self.closeTab)
 
         self.file_preview_splitter = QSplitter(Qt.Orientation.Vertical)
-        self.preview_widget = PreviewWidget(parent=self.file_preview_splitter)
+        self.preview_widget = PreviewWidget()
         self.file_preview_splitter.addWidget(self.file_tree.view)
-        self.file_preview_splitter.addWidget(self.preview_widget)
+        self.file_preview_splitter.addWidget(self.preview_widget.dict)
+        self.file_preview_splitter.addWidget(self.preview_widget.image)
 
         # Splitter: (FILES, TABS)
         self.v_splitter = QSplitter()
@@ -286,7 +287,7 @@ class MainView(QMainWindow):
             self.file_tree.changePath(file_urls[0])
         else:
             self.file_tree.new_tab_asked = shift
-            self.file_tree.sig_askOpenFile.emit(file_urls[0])
+            self.file_tree.sig_askOpenFile.emit(file_urls[0], )
 
 
 def indexOfClosestToTarget(target, array):

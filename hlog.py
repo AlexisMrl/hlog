@@ -43,12 +43,12 @@ class hlog(QObject):
         if file:
             self.openFile(file)
 
-    def openFile(self, path):
+    def openFile(self, path, loading_kwargs={}):
         self.main_view.write("Opening file: " + path)
 
         # ReadfileData in a thread
         # ReadfileData.from_filepath(path)
-        self.loading_thread = QuickThread(ReadfileData.from_filepath, filepath=path)
+        self.loading_thread = QuickThread(ReadfileData.from_filepath, filepath=path, loading_kwargs=loading_kwargs)
         self.loading_thread.sig_finished.connect(self.onFileOpened)
         self.loading_thread.sig_error.connect(self.onFileOpenError)
         self.loading_thread.start()
