@@ -4,6 +4,7 @@ from PyQt5.QtGui import QPixmap
 
 import os
 import sys
+import traceback
 from typing import Optional
 
 from views.MainView import MainView
@@ -68,6 +69,11 @@ class hlog(QObject):
         filepath = fn_kwargs.get("filepath")
         self.main_view.write("Could not open file: " + filepath)
         print(exception)
+        traceback.print_exception(
+            type(exception),
+            exception,
+            exception.__traceback__
+        )
 
     def close(self):
         pass
