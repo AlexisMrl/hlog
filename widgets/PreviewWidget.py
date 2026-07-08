@@ -141,6 +141,8 @@ class DictPreview(QTreeWidget):
             for data_name in data_names:
                 data = group.get(data_name)
                 info = f"{data.shape} {data.attrs.get('axes')}, dtype={data.dtype}"
+                if (res_type:=data.attrs.get("res_type", None)):
+                    info += f" res_type={res_type}"
                 item = QTreeWidgetItem([data_name, info])
                 item.setData(0, Qt.UserRole, "result")
                 item.setData(1, Qt.UserRole, group_name)
