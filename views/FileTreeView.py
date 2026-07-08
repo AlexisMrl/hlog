@@ -5,6 +5,17 @@ import os
 
 from src.ReadfileData import h5_preview_results_group
 
+from enum import Enum, auto
+
+class ItemType(Enum):
+    DIR = auto()
+    FILE = auto()
+
+class FileType(Enum):
+    TXT = auto()
+    HDF5 = auto()
+    HDF5_WITH_RESULT = auto()
+
 
 class FileTreeView(QWidget):
     sig_askOpenFile = pyqtSignal(str, dict)
@@ -38,17 +49,41 @@ class FileTreeView(QWidget):
         # drag out
         self.view.setDragEnabled(True)
 
-    def makeMenu(self, type):
+    def makeMenu(self, item_type: ItemType, path):
+        """ Build context menu based on item_type """
         menu = QMenu()
+        ## general
         menu.addAction("Open in new tab", self.openInNewTab)
         menu.addAction("Copy path", self.copyPath)
-        file_action = [
-            ("Open in notepad", self.openInTE),
-            ("Read file", lambda path: self.sig_askOpenFile.emit(path, {})),
-        ]
-        dir_action = [("Open", self.openDir)]
-        for action in file_action if type == "file" else dir_action:
-            menu.addAction(action[0], action[1])
+        
+        ## special: dir | file
+        match item_type:
+            case ItemType.FILE:
+                actions = [
+                        ("Open in notepad", self.openInTE),
+                        ("Read file", lambda path: self.sig_askOpenFile.emit(path, {})),
+                    ]
+                match self.get_file_type(path):
+                    case FileType.HDF5_WITH_RESULT:
+                        actions += h5_preview_results_group(
+                            path,
+                            lambda res_grp: [
+                                (
+                                    f"{group_name}.{res_name}",
+                                    lambda g=group_name, r=res_name: self.onOpenResultGroup(g, r)
+                                )
+                                for group_name in res_grp
+                                for res_name in res_grp[group_name].attrs["result_data_names"]
+                            ]
+                        )
+                
+            case ItemType.DIR:
+                actions = [("Open", self.openDir)]
+
+        for name, fn in actions:
+            menu.addAction(name, fn)
+
+        ## general
         menu.addSeparator()
         menu.addAction("Go up a dir", self.goUpDir)
         # menu.addAction('Open in file explorer', self.openInFE)
@@ -61,14 +96,28 @@ class FileTreeView(QWidget):
         menu.addAction("Refresh", self.refresh)
         return menu
 
+    def get_type(self, index) -> ItemType:
+        if self.model.isDir(index):
+            return ItemType.DIR
+        else:
+            return ItemType.FILE
+        
+    def get_file_type(self, path) -> FileType:
+        if path.endswith(".hdf5"):
+            if has_result := h5_preview_results_group(path):
+                return FileType.HDF5_WITH_RESULT
+            return FileType.HDF5
+
+        elif path.endswith(".txt"):
+            return FileType.TXT
+
+        
+
     def showContextMenu(self, pos):
         index = self.view.indexAt(pos)
         if not index.isValid():
             return
-        # check if file or dir
-        type = "file" if not self.model.isDir(index) else "dir"
-        menu = self.makeMenu(type)
-
+        menu = self.makeMenu(self.get_type(index), self.model.filePath(index))
         menu.exec_(self.view.mapToGlobal(pos))
 
     def onKeyPress(self, event):
@@ -134,27 +183,29 @@ class FileTreeView(QWidget):
             QTreeView.keyPressEvent(self.view, event)
 
     def onItemChanged(self, current, previous):
+        """ Update preview based on item type """
+
         self.main_view.preview_widget.clear()
-        index = self.view.currentIndex()
-        type = "file" if not self.model.isDir(index) else "dir"
-        if type == "file":
-            path = self.model.filePath(current)
+        match self.get_type(self.view.currentIndex()):
+            case ItemType.DIR:
+                self.main_view.preview_widget.clear()
 
-            if path.endswith(".hdf5"):
-                h5_preview_results_group(
-                    path,
-                    pass_to_fn=lambda results_group: (
-                        self.main_view.preview_widget.showResultGroup(
-                            path, results_group, self.onOpenResultGroup
-                        )
-                    ),
-                )
+            case ItemType.FILE:
+                path = self.model.filePath(current)
+                file_type = self.get_file_type(path)
 
-            elif png := self.main_view.hlog.db.get_fig(path):
-                self.main_view.preview_widget.showPng(png)
+                if file_type is FileType.HDF5_WITH_RESULT:
+                    h5_preview_results_group(path,
+                        pass_to_fn=lambda results_group: (
+                            self.main_view.preview_widget.showResultGroup(
+                                results_group, self.onOpenResultGroup
+                            )
+                        ),
+                    )
+                
+                if png := self.main_view.hlog.db.get_fig(path):
+                    self.main_view.preview_widget.showPng(png)
 
-        elif type == "dir":
-            self.main_view.preview_widget.clear()
 
     def onDoubleClick(self):
         if QApplication.keyboardModifiers() & Qt.ShiftModifier:

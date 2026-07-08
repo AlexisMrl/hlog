@@ -31,9 +31,9 @@ class PreviewWidget(QWidget):
     def showPng(self, png_bytes):
         self.image.showPng(png_bytes)
 
-    def showResultGroup(self, filepath, results_group, ask_load_fn):
+    def showResultGroup(self, results_group, ask_load_fn):
         self.dict.show()
-        self.dict.set_data(filepath, results_group, ask_load_fn)
+        self.dict.set_data(results_group, ask_load_fn)
 
     def clear(self):
         self.image.clear()
@@ -111,7 +111,6 @@ class DictPreview(QTreeWidget):
 
     def set_data(
         self,
-        filepath,
         result_group: h5py.Group,
         ask_load_fn: Callable[[str, str], bool]
     ):

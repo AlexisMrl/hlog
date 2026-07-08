@@ -480,7 +480,7 @@ def h5_build2DDataDict(data, sweeped_names, out_names, data_dict):
     return data_dict
 
 
-def h5_preview_results_group(filepath, pass_to_fn) -> h5py.Group:
+def h5_preview_results_group(filepath, pass_to_fn=lambda res_grp: True) -> h5py.Group:
     """Call `fn_to_execute` with the file `results` section if VERSION is supported and the group `results` exists. Else return False.
     Fn as argument because we do not want the file to stay opened.
 
@@ -497,7 +497,7 @@ def h5_preview_results_group(filepath, pass_to_fn) -> h5py.Group:
         if "results" not in file:
             return False
         
-        pass_to_fn(file.get("results"))
+        return pass_to_fn(file.get("results"))
 
 def h5_load_from_results(filepath, group_name, result_name):
     with h5py.File(filepath, "r", swmr=True) as file:
