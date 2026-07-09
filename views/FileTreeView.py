@@ -1,6 +1,6 @@
 from PyQt5.QtWidgets import QWidget, QFileSystemModel, QTreeView, QMenu, QApplication
-from PyQt5.QtGui import QKeyEvent, QPaintEvent
-from PyQt5.QtCore import Qt, QProcess, QEvent, QPoint, pyqtSignal
+from PyQt5.QtGui import QKeyEvent
+from PyQt5.QtCore import Qt, QEvent, pyqtSignal
 import os
 
 from src.ReadfileData import h5_preview_results_group
@@ -42,7 +42,7 @@ class FileTreeView(QWidget):
         # key press
         self.view.keyPressEvent = self.onKeyPress
 
-        self.view.doubleClicked.connect(self.onDoubleClick)
+        self.view.doubleClicked.connect(lambda *args: self.askOpenCurrentIndex())
         # on item changed
         self.view.selectionModel().currentChanged.connect(self.onItemChanged)
 
@@ -52,31 +52,27 @@ class FileTreeView(QWidget):
     def makeMenu(self, item_type: ItemType, path):
         """ Build context menu based on item_type """
         menu = QMenu()
-        ## general
-        menu.addAction("Open in new tab", self.openInNewTab)
-        menu.addAction("Copy path", self.copyPath)
-        
+
         ## special: dir | file
         match item_type:
             case ItemType.FILE:
                 actions = [
-                        ("Open in notepad", self.openInTE),
-                        ("Read file", lambda path: self.sig_askOpenFile.emit(path, {})),
-                    ]
+                    ("Open", lambda: self.sig_askOpenFile.emit(path, {})),
+                    ("Open in new tab", lambda: (setattr(self, "new_tab_asked", True), self.askOpenCurrentIndex())),
+                    ("Open in notepad", self.openInTE),
+                ]
+
                 match self.get_file_type(path):
                     case FileType.HDF5_WITH_RESULT:
                         actions += h5_preview_results_group(
                             path,
                             lambda res_grp: [
-                                (
-                                    f"{group_name}.{res_name}",
-                                    lambda g=group_name, r=res_name: self.onOpenResultGroup(g, r)
-                                )
+                                (f"{group_name}.{res_name}", lambda g=group_name, r=res_name: self.onOpenResultGroup(g, r))
                                 for group_name in res_grp
                                 for res_name in res_grp[group_name].attrs["result_data_names"]
-                            ]
+                            ],
                         )
-                
+
             case ItemType.DIR:
                 actions = [("Open", self.openDir)]
 
@@ -84,6 +80,7 @@ class FileTreeView(QWidget):
             menu.addAction(name, fn)
 
         ## general
+        menu.addAction("Copy path", self.copyPath)
         menu.addSeparator()
         menu.addAction("Go up a dir", self.goUpDir)
         # menu.addAction('Open in file explorer', self.openInFE)
@@ -104,7 +101,7 @@ class FileTreeView(QWidget):
         
     def get_file_type(self, path) -> FileType:
         if path.endswith(".hdf5"):
-            if has_result := h5_preview_results_group(path):
+            if h5_preview_results_group(path):
                 return FileType.HDF5_WITH_RESULT
             return FileType.HDF5
 
@@ -126,7 +123,7 @@ class FileTreeView(QWidget):
 
         # Enter or Space -> open file
         if key in (Qt.Key_Return, Qt.Key_Space):
-            self.askOpenFile()
+            self.askOpenCurrentIndex()
 
         elif key == Qt.Key_H:
             self.view.keyPressEvent(
@@ -195,28 +192,19 @@ class FileTreeView(QWidget):
                 file_type = self.get_file_type(path)
 
                 if file_type is FileType.HDF5_WITH_RESULT:
-                    h5_preview_results_group(path,
-                        pass_to_fn=lambda results_group: (
-                            self.main_view.preview_widget.showResultGroup(
-                                results_group, self.onOpenResultGroup
-                            )
-                        ),
+                    h5_preview_results_group(
+                        path,
+                        handler=lambda results_group: 
+                            self.main_view.preview_widget.showResultGroup(results_group,
+                            self.onOpenResultGroup)
                     )
-                
+
                 if png := self.main_view.hlog.db.get_fig(path):
                     self.main_view.preview_widget.showPng(png)
 
 
-    def onDoubleClick(self):
-        if QApplication.keyboardModifiers() & Qt.ShiftModifier:
-            self.openInNewTab()
-        else:
-            self.askOpenFile()
-
     def onOpenResultGroup(self, group_name, result_name):
-        if QApplication.keyboardModifiers() & Qt.ShiftModifier:
-            self.new_tab_asked = True
-        self.askOpenFile(
+        self.askOpenCurrentIndex(
             loading_kwargs={
                 "h5": {"group_name": group_name, "result_name": result_name}
             }
@@ -224,12 +212,19 @@ class FileTreeView(QWidget):
 
     ### ACTIONS ###
 
-    def askOpenFile(self, index=None, loading_kwargs={}):
-        if not index:
-            index = self.view.currentIndex()
+    def askOpenCurrentIndex(self, loading_kwargs={}):
+
+        if QApplication.keyboardModifiers() & Qt.ShiftModifier:
+            self.new_tab_asked = True
+        
+        index = self.view.currentIndex()
         path = self.model.filePath(index)
-        if not self.model.isDir(index):
-            self.sig_askOpenFile.emit(path, loading_kwargs)
+
+        match self.get_type(index):
+            case ItemType.FILE:
+                self.sig_askOpenFile.emit(path, loading_kwargs)
+            case ItemType.DIR:
+                pass
 
     def changePath(self, path):
         if not os.path.exists(path):
@@ -241,17 +236,12 @@ class FileTreeView(QWidget):
 
     def openInTE(self):
         # try to open in text editor
+        from PyQt5.QtGui import QDesktopServices
+        from PyQt5.QtCore import QUrl
         index = self.view.currentIndex()
         path = self.model.filePath(index)
-        try:
-            process = QProcess()
-            process.startDetached("notepad.exe", [path])
-        except:
-            self.main_view.write("Could not open in text editor: " + path)
-
-    def openInNewTab(self):
-        self.new_tab_asked = True
-        self.askOpenFile()
+        if not QDesktopServices.openUrl(QUrl.fromLocalFile(path)):
+            self.main_view.write(f"Could not open in text editor: {path}")
 
     def goUpDir(self):
         path = self.model.filePath(self.view.rootIndex())

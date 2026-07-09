@@ -61,7 +61,7 @@ class ReadfileData:
         self.reload_function_index = reload_function_index # reload_function returns a list of data_dict. This is the index to take
     
     def reload(self):
-        self.data_dict = self.reload_function(self.filepath)[self.reload_function_index]
+        self.data_dict = self.reload_function()[self.reload_function_index]
         return self
             
     def get_data(self, title, alternate=False, transpose=False):
@@ -174,7 +174,7 @@ class ReadfileData:
                 metadata=metadata,
                 h=h,
                 data_dict=data_dict,
-                reload_function = load_function,
+                reload_function = lambda: load_function(filepath, loading_kwargs),
                 reload_function_index = i
             ) for i, data_dict in enumerate(data_dicts)
         ]
@@ -236,7 +236,7 @@ class ReadfileData:
 
         return rfdata
 
-def ph_load(filepath) -> list[dict]:
+def ph_load(filepath, loading_kwargs:dict={}) -> list[dict]:
     """
     Returns:
         [data_dict], a list with one element.
@@ -480,11 +480,11 @@ def h5_build2DDataDict(data, sweeped_names, out_names, data_dict):
     return data_dict
 
 
-def h5_preview_results_group(filepath, pass_to_fn=lambda res_grp: True) -> h5py.Group:
-    """Call `fn_to_execute` with the file `results` section if VERSION is supported and the group `results` exists. Else return False.
+def h5_preview_results_group(filepath, handler = lambda res_grp: True):
+    """Call `handler` with the file `results` section if VERSION is supported and the group `results` exists. Else return False.
     Fn as argument because we do not want the file to stay opened.
 
-    fn_to_execute: Callable[h5py.Group]
+    handler: Callable[h5py.Group]
 
 
     """
@@ -497,20 +497,12 @@ def h5_preview_results_group(filepath, pass_to_fn=lambda res_grp: True) -> h5py.
         if "results" not in file:
             return False
         
-        return pass_to_fn(file.get("results"))
+        return handler(file.get("results"))
 
 def h5_load_from_results(filepath, group_name, result_name):
-    with h5py.File(filepath, "r", swmr=True) as file:
-        meta = file.get("meta")
-        version = str(meta.attrs.get("VERSION"))
-        if version not in SUPPORTED_HDF5_VERSIONS_WITH_RESULTS:
-            return False
-        
-        if "results" not in file:
-            return False
-        
 
-        group = file["results"].get(group_name)
+    def load(res_group):
+        group = res_group.get(group_name)
 
         swept_axes = list(group[result_name].attrs.get("axes"))
         out_list = [result_name]
@@ -532,6 +524,8 @@ def h5_load_from_results(filepath, group_name, result_name):
                     
 
         return [data_dict]
+
+    return h5_preview_results_group(filepath, handler=load)
 
 
 
