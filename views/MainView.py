@@ -287,7 +287,7 @@ class MainView(QMainWindow):
             self.file_tree.changePath(file_urls[0])
         else:
             self.file_tree.new_tab_asked = shift
-            self.file_tree.sig_askOpenFile.emit(file_urls[0], )
+            self.file_tree.sig_askOpenFile.emit(file_urls[0], {})
 
 
 def indexOfClosestToTarget(target, array):
