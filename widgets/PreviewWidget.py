@@ -122,11 +122,15 @@ class DictPreview(QTreeWidget):
         for group_name, group in result_group.items():
             group_item = QTreeWidgetItem([group_name])
             self.addTopLevelItem(group_item)
+            group_item.setExpanded(True)
+
 
             axes_item = QTreeWidgetItem(["Axes"])
             results_item = QTreeWidgetItem(["Results"])
             group_item.addChild(axes_item)
             group_item.addChild(results_item)
+            axes_item.setExpanded(False)
+            results_item.setExpanded(True)
 
             data_names = group.attrs["result_data_names"]
             ax_names = group.attrs["sweeped_ax_names"]
@@ -149,7 +153,6 @@ class DictPreview(QTreeWidget):
                 item.setData(3, Qt.UserRole, ask_load_fn)
                 results_item.addChild(item)
 
-        self.expandToDepth(1)
         self.resizeColumnToContents(0)
         self.resizeColumnToContents(1)
 
@@ -163,6 +166,7 @@ class DictPreview(QTreeWidget):
         row_h = self.sizeHintForRow(0) if rows else self.fontMetrics().height() + 6
         height = self.header().height() + rows * row_h + 2 * self.frameWidth()
         self.setFixedHeight(height)
+    
 
     def onItemDoubleClick(self, item, column):
         if item.data(0, Qt.UserRole) == "result":
