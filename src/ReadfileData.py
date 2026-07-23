@@ -425,8 +425,11 @@ def h5_load(filepath, loading_kwargs:dict={}) -> list[dict]:
                         raise NotImplementedError("Sweep dimension not 1 or 2")
                         continue
                 data_dict['config'] = meta.attrs.get("config", [])
-                data_dict['comments'] = meta.attrs.get("cell", [])
+                comments = meta.attrs.get("comments", [])
+                comments += meta.attrs.get("cell", [])
                 data_dict['other_meta'] = [f"{k}:{v}" for k, v in meta.attrs.items()]
+                comments += data_dict["other_meta"]
+                data_dict['comments'] = comments
                 data_dicts.append(data_dict)
                 # print(data_dicts)
             return data_dicts
