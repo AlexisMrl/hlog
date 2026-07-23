@@ -17,9 +17,9 @@ children = [
         {'name': 'z', 'type': 'list', 'values': []}
     ]},
     {'name': 'Header', 'type': 'group', 'children': [
-        {'name': 'Open in window', 'type': 'action'},
+        {'name': 'Open in text editor', 'type': 'action'},
         {'name': 'config', 'type': 'text', 'value': '', 'readonly': True},
-        {'name': 'comments', 'type': 'text', 'value': '', 'readonly': True},
+        {'name': 'meta', 'type': 'text', 'value': '', 'readonly': True},
         ], 'expanded': False},
 ] # these are just placeholders, they are filled/rewritten in onNewReadFileData
 
@@ -46,7 +46,7 @@ class SweepTreeView:
         self.parameters.sigTreeStateChanged.connect(onParamChange)
 
         p = self.parameters
-        p.param('Header', 'Open in window').sigActivated.connect(self.show_header_popup)
+        p.param('Header', 'Open in text editor').sigActivated.connect(self.show_header_popup)
         
         self.tree.header().setSectionResizeMode(0)
         self.tree.setColumnWidth(0, 130)
@@ -97,7 +97,7 @@ class SweepTreeView:
 
         # logs
         p.param('Header', 'config').setValue(str(data_dict['config']))
-        p.param('Header', 'comments').setValue(str(data_dict['comments']))
+        p.param('Header', 'meta').setValue(str(data_dict['meta']))
         
         #wait_before = {'name': 'wait_before', 'type': 'str', 'value': str(rfdata.data_dict['beforewait']), 'readonly': True},
         #self.params.param('Sweep').addChildren([is_alternate, wait_before])
@@ -119,23 +119,49 @@ class SweepTreeView:
     def alternate_checked(self):
         return self.parameters.param('Sweep', 'is_alternate').value()
 
-    def show_header_popup(self):
-        header_text = f"Config:\n{self.parameters.param('Header', 'config').value()}\n\n" \
-                      f"Comments:\n{self.parameters.param('Header', 'comments').value()}"
-        dlg = QDialog()
-        dlg.setWindowTitle("Header Full Text")
-        layout = QVBoxLayout()
-        text_edit = QTextEdit()
-        text_edit.setReadOnly(True)
-        text_edit.setText(header_text)
-        layout.addWidget(text_edit)
-        close_btn = QPushButton("Close")
-        close_btn.clicked.connect(dlg.accept)
-        layout.addWidget(close_btn)
-        dlg.setLayout(layout)
-        dlg.resize(600, 400)
-        dlg.exec_()
+    # def show_header_popup(self):
+    #     header_text = f"Config:\n{self.parameters.param('Header', 'config').value()}\n\n" \
+    #                   f"Meta:\n{self.parameters.param('Header', 'meta').value()}"
+    #     dlg = QDialog()
+    #     dlg.setWindowTitle("Header Full Text")
+    #     layout = QVBoxLayout()
+    #     text_edit = QTextEdit()
+    #     text_edit.setReadOnly(True)
+    #     text_edit.setText(header_text)
+    #     layout.addWidget(text_edit)
+    #     close_btn = QPushButton("Close")
+    #     close_btn.clicked.connect(dlg.accept)
+    #     layout.addWidget(close_btn)
+    #     dlg.setLayout(layout)
+    #     dlg.resize(600, 400)
+    #     dlg.exec_()
 
+
+
+    def show_header_popup(self):
+        header_text = (
+            f"Config:\n{self.parameters.param('Header', 'config').value()}\n\n"
+            f"Meta:\n{self.parameters.param('Header', 'meta').value()}"
+        )
+
+        import tempfile
+        fd, path = tempfile.mkstemp(suffix=".txt", text=True)
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            f.write(header_text)
+        open_text_file(path)
 
 def range_to_string(ranges):
     return '[{:.3g}, {:.3g}], npts: {}, step: {:.3g}'.format(*ranges)
+
+
+def open_text_file(path):
+    import platform
+    import subprocess
+    system = platform.system()
+
+    if system == "Windows":
+        os.startfile(path)
+    elif system == "Darwin":
+        subprocess.Popen(["open", "-t", path])
+    else:
+        subprocess.Popen(["xdg-open", path])

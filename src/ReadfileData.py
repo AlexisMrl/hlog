@@ -23,8 +23,7 @@ DATA_DICT_FORMAT = {
     'beforewait': True,
     'sweep_dim': 2,
     'config': [],
-    'comments': [],
-    'other_meta': [],
+    'meta': [],
     'sweep_time': None # epoch [beginning, end]
     }
 
@@ -262,7 +261,7 @@ def ph_load(filepath, loading_kwargs:dict={}) -> list[dict]:
     data_dict['beforewait'] = ph_findBeforeWait(headers)
     config, comment = ph_findConfigAndComments(headers)
     data_dict['config'] = config
-    data_dict['comments'] = comment
+    data_dict['meta'] = comment
     
     return [data_dict]
 
@@ -425,11 +424,7 @@ def h5_load(filepath, loading_kwargs:dict={}) -> list[dict]:
                         raise NotImplementedError("Sweep dimension not 1 or 2")
                         continue
                 data_dict['config'] = meta.attrs.get("config", [])
-                comments = meta.attrs.get("comments", [])
-                comments += meta.attrs.get("cell", [])
-                data_dict['other_meta'] = [f"{k}:{v}" for k, v in meta.attrs.items()]
-                comments += data_dict["other_meta"]
-                data_dict['comments'] = comments
+                data_dict['meta'] = [f"{k}:{v}" for k, v in meta.attrs.items()]
                 data_dicts.append(data_dict)
                 # print(data_dicts)
             return data_dicts
@@ -446,7 +441,7 @@ def h5_load(filepath, loading_kwargs:dict={}) -> list[dict]:
                 raise NotImplementedError(f"Sweep dimension not 1 or 2")
     
             data_dict['config'] = meta.attrs.get("config")
-            data_dict['comments'] = meta.attrs.get("cell")
+            data_dict['meta'] = meta.attrs.get("cell")
 
             return [data_dict]
 
