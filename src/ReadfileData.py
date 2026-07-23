@@ -509,8 +509,9 @@ def h5_load_from_results(filepath, group_name, result_name):
 
         swept_axes = list(group[result_name].attrs.get("axes"))
         out_list = [result_name]
-        # TODO: check and load all results having the same swept_axes
-        # out_list +=
+        special_type = group[result_name].attrs.get("res_type", None)
+        if special_type is not None:
+            print(f"{special_type=}")
 
         if len(swept_axes) == 1:
             data_dict = deepcopy(DATA_DICT_FORMAT)

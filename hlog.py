@@ -1,6 +1,6 @@
 from PyQt5.QtWidgets import QApplication, QSplashScreen
 from PyQt5.QtCore import QObject, Qt, pyqtSignal
-from PyQt5.QtGui import QPixmap
+from PyQt5.QtGui import QIcon
 
 import os
 import sys
@@ -92,7 +92,7 @@ if __name__ == "__main__":
         QApplication.setAttribute(Qt.AA_EnableHighDpiScaling, True)
         QApplication.setAttribute(Qt.AA_UseHighDpiPixmaps, True)
         app = QApplication([])
-        app.setApplicationName("hlog")
+        app.setWindowIcon(QIcon("resources/hlog.png"))
         sys.argv.remove("--with-app")
 
     if len(sys.argv) > 1:
@@ -102,16 +102,7 @@ if __name__ == "__main__":
             file = sys.argv[1]
             path = os.path.dirname(file)
 
-    pixmap = QPixmap("./resources/icon.png")
-    # pixmap = pixmap.scaledToWidth(200, mode=Qt.SmoothTransformation)
-    splash = QSplashScreen(pixmap)
-    splash.setWindowFlags(Qt.WindowStaysOnTopHint | Qt.FramelessWindowHint)
-    msg = "Loading..." + "\n" + path
-    splash.showMessage(msg, alignment=Qt.AlignBottom | Qt.AlignHCenter, color=Qt.white)
-    # splash.show()
-
     hl = hlog(path, app, file=file)
-    # splash.finish(hl.main_view)
     hl.main_view.show()
     hl.main_view.write("hi")
 
