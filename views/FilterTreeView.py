@@ -6,9 +6,32 @@ from scipy.ndimage import gaussian_filter1d, gaussian_filter
 import numpy as np
 from src.ReadfileData import ReadfileData
 
+## pasted from QIQSS_LIB
+from matplotlib.colors import LinearSegmentedColormap, LogNorm, to_rgb
+
+# Probability cmap
+deep_blue = "#000a1a"
+blue = "#0099ff"
+white = "#ffffff"
+gray = "#bbbbbb"
+orange = "#ff6600"
+deep_orange = "#662900"
+
+prob_clist = list(map(to_rgb, [deep_blue, blue, white, orange, deep_orange]))
+prob_cmap = LinearSegmentedColormap.from_list("prob_cmap", prob_clist)
+
+hist_clist = list(map(to_rgb, [deep_blue, blue, white]))
+hist_cmap = LinearSegmentedColormap.from_list("hist_cmap", hist_clist)
+
+dot_clist = list(map(to_rgb, [deep_blue, blue, gray, orange, deep_orange]))
+dot_cmap = LinearSegmentedColormap.from_list("dot_cmap", dot_clist)
+CMAP_CUSTOM = {"prob": prob_cmap, "hist": hist_cmap, "dot": dot_cmap}
+#######################
+
 
 d1_filters = ['No filter', 'dy/dx']  # filters possible for 1d data
 d2_filters = ['No filter', 'dz/dx', 'dz/dy', 'Gaussian filter'] # filters possible for 2d data
+CMAPS = ['viridis', 'RdBu_r', 'twilight', 'plasma', 'inferno', 'magma', 'cividis'] + list(CMAP_CUSTOM.keys())
 children = [
     {'name': 'auto update', 'type': 'bool', 'value': False},
     {'name': 'Filter', 'type': 'group', 'children': [
@@ -21,7 +44,7 @@ children = [
     {'name': '2d sweep', 'type': 'group', 'children': [
         #{'name': 'min', 'type': 'slider', 'value': 0, 'limits':(0, 1), 'step': 0.001, 'default': 0},
         #{'name': 'max', 'type': 'slider', 'value': 1, 'limits':(0, 1), 'step': 0.001, 'default': 1},
-        {'name': 'cmap', 'type': 'list', 'values': ['viridis', 'RdBu_r', 'twilight', 'plasma', 'inferno', 'magma', 'cividis'], 'default': 'viridis'},
+        {'name': 'cmap', 'type': 'list', 'values': CMAPS, 'default': 'viridis'},
         {'name': 'z log', 'type': 'bool', 'value': False},
         #{'name': 'Deinterlace', 'type': 'bool', 'value': False},
         
@@ -132,7 +155,10 @@ class FilterTreeView:
         return p.param('auto update').value()
     
     def getCmap(self):
-        return self.parameters.param('2d sweep', 'cmap').value()
+        cmap = self.parameters.param('2d sweep', 'cmap').value()
+        if cmap in CMAP_CUSTOM.keys():
+            cmap = CMAP_CUSTOM[cmap]
+        return cmap
 
     def applyOnData(self, data, data_label:str):
         p = self.parameters
