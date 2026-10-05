@@ -1,16 +1,29 @@
 
-from PyQt5.QtWidgets import QTabWidget, QTabBar
+from PyQt5.QtWidgets import QTabWidget, QTabBar, QMenu, QApplication
 from PyQt5.QtCore import Qt
 
 class MiddleClickTabBar(QTabBar):
     def __init__(self, parent=None):
         super().__init__(parent)
+        self.clipboard = QApplication.clipboard()
 
     def mouseReleaseEvent(self, event):
+        index = self.tabAt(event.pos())
         if event.button() == Qt.MiddleButton:
-            index = self.tabAt(event.pos())
             if index >= 0:
                 self.parent().removeTab(index)
+
+        elif event.button() == Qt.RightButton:
+            if index >= 0:
+                layout = self.parent().widget(index)
+                
+                menu = QMenu(self)
+
+                menu.addAction("Copy path", lambda: self.clipboard.setText(layout.filepath))
+                menu.addAction("Reload", layout.update_fn)
+
+                menu.exec_(event.globalPos())
+
         else:
             super().mouseReleaseEvent(event)
 

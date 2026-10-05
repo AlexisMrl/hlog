@@ -95,7 +95,7 @@ class MainView(QMainWindow):
         # add the tab
         self.graphic_tabs.addTab(layout, new_name)
         self.graphic_tabs.setCurrentWidget(layout)
-
+        
         return layout
 
     def layoutCurrentTab(self, new_name=""):
@@ -140,6 +140,8 @@ class MainView(QMainWindow):
         filter_tree = layout.filter_tree
         graph = layout.graph
 
+
+
         # disconnect signals
         filter_tree.parameters.sigTreeStateChanged.disconnect()
         sweep_tree.parameters.sigTreeStateChanged.disconnect()
@@ -154,6 +156,8 @@ class MainView(QMainWindow):
         filter_tree.onNewReadFileData(rfdata)
         graph.onNewReadFileData(rfdata)
         
+
+        layout.filepath = rfdata.filepath
         layout.update_fn = lambda: self.prepare_and_send_plot_dict(rfdata, layout)
 
         filter_tree.parameters.sigTreeStateChanged.connect(layout.update_fn)
